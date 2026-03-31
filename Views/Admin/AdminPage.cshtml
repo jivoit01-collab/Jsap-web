@@ -13,7 +13,7 @@
     }
     .admin-card h6 {
         font-size: 13px;
-        font-weight: 500;6+
+        font-weight: 500;
         margin-bottom: 8px;
         opacity: 0.85;
     }
@@ -515,6 +515,13 @@ $('#searchBtn').on('click', function() {
 
 // INIT
 $(document).ready(function() {
+    // Set default dates to today
+    const today = new Date().toISOString().split('T')[0];
+    const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+        .toISOString().split('T')[0];
+    $('#fromDate').val(firstOfMonth);
+    $('#toDate').val(today);
+
     loadSummary();
     loadMaker();
     loadChecker();
