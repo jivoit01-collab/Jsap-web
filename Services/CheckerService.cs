@@ -34,6 +34,7 @@ public class CheckerService
             {
                 data.Add(new
                 {
+                    serialNumber = reader["SerialNumber"],  // ✅ ADD THIS
                     accountName = reader["AccountName"]?.ToString(),
                     vchNumber = reader["VchNumber"],
                     voucherDate = reader["VoucherDate"],
@@ -87,5 +88,55 @@ public class CheckerService
             cmd.ExecuteNonQuery();
         }
     }
-  
+    public List<object> GetInvoiceItemDetails(decimal serialNumber)
+    {
+        List<object> items = new List<object>();
+
+        string connStr = _config.GetConnectionString("FHConnection");
+
+        using (SqlConnection conn = new SqlConnection(connStr))
+        {
+            using (SqlCommand cmd = new SqlCommand("GetInvoice", conn))
+            {
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandTimeout = 120;
+
+                cmd.Parameters.Add("@SerialNumber", SqlDbType.Decimal).Value = serialNumber;
+                cmd.Parameters.Add("@VchNumber", SqlDbType.Decimal).Value = DBNull.Value;
+                cmd.Parameters.Add("@AccountName", SqlDbType.NVarChar).Value = DBNull.Value;
+                cmd.Parameters.Add("@FromDate", SqlDbType.Date).Value = DBNull.Value;
+                cmd.Parameters.Add("@ToDate", SqlDbType.Date).Value = DBNull.Value;
+
+                conn.Open();
+
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    // ✅ First result set skip (header)
+                    reader.NextResult();
+
+                    // ✅ Second result set = product details
+                    while (reader.Read())
+                    {
+                        items.Add(new
+                        {
+                            productName = reader["ProductName"]?.ToString(),
+                            quantity = reader["Quantity"],
+                            rate = reader["PurchaseCost"],
+                            tax = reader["TaxRate"],
+
+                            amount = reader["ItemValue"],
+
+                            taxName = reader["TaxName"] == DBNull.Value ? "-" : reader["TaxName"].ToString(),              // ✅ FIX
+                            warehouseName = reader["WarehouseName"] == DBNull.Value ? "-" : reader["WarehouseName"].ToString(), // ✅ FIX
+
+                            itemValue = reader["ItemValue"]
+
+                        });
+                    }
+                }
+            }
+        }
+
+        return items;
     }
+}

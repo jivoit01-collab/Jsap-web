@@ -1,4 +1,5 @@
 ﻿
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Configuration;
@@ -34,6 +35,12 @@ namespace JSAPNEW.Controllers
         public IActionResult GetBillDetails(DateTime? fromDate, DateTime? toDate, string accountName)
         {
             var data = _service.GetBillDetails(fromDate, toDate, accountName, null);
+            return Json(data);
+        }
+        [HttpGet]
+        public IActionResult GetInvoiceItems(int vchNumber)
+        {
+            var data = _service.GetInvoiceItemDetails(vchNumber); // ✅ int pass
             return Json(data);
         }
     }

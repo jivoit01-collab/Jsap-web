@@ -90,7 +90,7 @@
                             <th>Due Date</th>
                             <th>Attachment</th>
                             <th>Maker Remark</th>
-                            <th>Status</th>
+                            <th>Checker Status</th>
                             <th>Action</th>
                             <th>Total Qty</th>
                             <th>Total Amount</th>
@@ -115,11 +115,9 @@
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-
-
+@* 
 <script>
-/*
+    
     //------------------------------------
     // ✅ LOAD DATA (ONLY WHEN USER CLICKS)
     //------------------------------------
@@ -139,7 +137,7 @@
     return;
     }
 
-    $("#billTable").html(`<tr><
+    $("#billTable").html(`<tr>
     
     
     colspan="7">Loading...</td></tr>`);
@@ -163,13 +161,11 @@
     }
 
     let html = "";
-    let uniqueMap = new Map(); // ✅ prevents duplicate vouchers
+    let uniqueMap = new Map();
 
     data.forEach(item => {
 
-    // ✅ Skip duplicate voucher
     if (uniqueMap.has(item.vchNumber)) return;
-
     uniqueMap.set(item.vchNumber, true);
 
     let statusBadge =
@@ -184,8 +180,6 @@
     <td>${item.vchNumber ?? ""}</td>
     <td>${formatDate(item.voucherDate)}</td>
     <td>${item.billAmount ?? ""}</td>
-
-    <!-- Attachment -->
     <td>
     ${
     item.attachmentPath
@@ -193,8 +187,6 @@
     : `<input type="file" class="fileInput form-control form-control-sm">`
     }
     </td>
-
-    <!-- Remark -->
     <td>
     ${
     item.attachmentPath
@@ -202,11 +194,7 @@
     : `<input type="text" class="remarkInput form-control form-control-sm" placeholder="Enter remark">`
     }
     </td>
-
-    <!-- Status -->
     <td>${statusBadge}</td>
-
-    <!-- Action -->
     <td>
     ${
     item.attachmentPath
@@ -220,24 +208,16 @@
     $("#billTable").html(html);
     }
     }
-    //------------------------------------
-    // ✅ OMNI SEARCH (VERY SIMPLE)
-    //------------------------------------
     $("#accountName").on("keyup", function () {
-
     let searchText = $(this).val().trim();
-
     if (searchText.length < 2) {
     $("#suggestionBox").empty();
     return;
     }
-
     $.get("/Maker/GetAccountSuggestions",
     { term: searchText },
     function (data) {
-
     let html = "";
-
     if (!data || data.length === 0) {
     html = `<div class="suggest-item">No result</div>`;
     } else {
@@ -245,78 +225,42 @@
     html += `<div class="suggest-item">${x}</div>`;
     });
     }
-
     $("#suggestionBox").html(html);
     });
     });
-
-
-    //------------------------------------
-    // ✅ SELECT SUGGESTION
-    //------------------------------------
     $(document).on("click", ".suggest-item", function () {
-
     let text = $(this).text();
-
     if (text === "No result") return;
-
     $("#accountName").val(text);
     $("#suggestionBox").empty();
     });
-
-
-    //------------------------------------
-    // ✅ EVENTS
-    //------------------------------------
     $(document).ready(function () {
-
-    // ❌ NO AUTO LOAD (prevents freeze)
-    // loadData();
-
-    // ❌ NO AUTO DATE CALL
-    // $("#fromDate, #toDate").change(loadData);
-
-    // ✅ ONLY BUTTON
     $("#searchBtn").click(loadData);
-
     });
-    //------------------------------------
-    // ✅ STEP 1: SUBMIT BUTTON CLICK
-    //------------------------------------
     $(document).on("click", ".submitBtn", function () {
-
     let row = $(this).closest("tr");
-
     let vchNumber = $(this).data("vch");
     let fileInput = row.find(".fileInput")[0];
     let remark = row.find(".remarkInput").val();
-
-    // ✅ Validation
     if (!fileInput.files.length) {
     alert("Please select a file");
     return;
     }
-
     let file = fileInput.files[0];
-
     let formData = new FormData();
-
-    // ✅ IMPORTANT (names must match controller)
     formData.append("vchNumber", vchNumber);
     formData.append("file", file);
     formData.append("makerRemark", remark);
-
     $.ajax({
-    url: "/Maker/SubmitBill",   // ✅ correct API
+    url: "/Maker/SubmitBill",
     type: "POST",
     data: formData,
     contentType: false,
     processData: false,
-
     success: function (res) {
     if (res.success) {
     alert("✅ Uploaded Successfully");
-    loadData(); // refresh table
+    loadData();
     } else {
     alert("❌ Upload failed");
     }
@@ -325,8 +269,13 @@
     alert("❌ Error occurred");
     }
     });
-    });
-*/
+   
+
+
+</script> *@
+
+<script>
+
     $(document).ready(function () {
 
     $("#searchBtn").click(loadData);
@@ -364,8 +313,8 @@
     // ---------------- LOAD DATA ----------------
     function loadData() {
 
-    let fromDate = $("#fromDate").val();
-    let toDate = $("#toDate").val();
+    let fromDate    = $("#fromDate").val();
+    let toDate      = $("#toDate").val();
     let accountName = $("#accountName").val().trim() || null;
 
     if (!fromDate || !toDate) {
@@ -380,7 +329,7 @@
 
     console.log("Calling API...");
 
-    $("#billTable").html(`<tr><td colspan="8">Loading...</td></tr>`);
+    $("#billTable").html(`<tr><td colspan="16">Loading...</td></tr>`);
 
     $.get("/Maker/GetBillDetails",
     { fromDate, toDate, accountName },
@@ -390,7 +339,7 @@
     }
     ).fail(function (err) {
     console.log("ERROR:", err);
-    $("#billTable").html(`<tr><td colspan="8">Error loading data</td></tr>`);
+    $("#billTable").html(`<tr><td colspan="16">Error loading data</td></tr>`);
     });
     }
 
@@ -399,71 +348,66 @@
     function renderTable(data) {
 
     if (!data || data.length === 0) {
-    $("#billTable").html(`<tr><td colspan="8">No Data Found</td></tr>`);
+    $("#billTable").html(`<tr><td colspan="16">No Data Found</td></tr>`);
     return;
     }
 
     let html = "";
+    let seenVch = new Set();
 
     data.forEach(item => {
 
-    let statusBadge = `<span class="badge bg-warning text-dark">Pending</span>`;
+    if (seenVch.has(item.vchNumber)) return;
+    seenVch.add(item.vchNumber);
 
-    if (item.status === "Approved") {
-    statusBadge = `<span class="badge bg-success">Approved</span>`;
-    } else if (item.status === "Rejected") {
-    statusBadge = `<span class="badge bg-danger">Rejected</span>`;
-    } else if (item.status === "Submitted") {
-    statusBadge = `<span class="badge bg-primary">Submitted</span>`;
-    }
+    // ✅ Rename variable to avoid conflict
+    let checkerStatusValue = item.checkerStatus || "Pending";
+
+    let statusBadge =
+    checkerStatusValue === "Approved" ? `<span class="badge bg-success">Approved</span>` :
+    checkerStatusValue === "Rejected" ? `<span class="badge bg-danger">Rejected</span>`  :
+    `<span class="badge bg-warning text-dark">Pending</span>`;
 
     html += `
     <tr>
-    <td>${item.accountName || ""}</td>
+    <td>
+    ${item.accountName || ""}
+    </td>
     <td>${item.vchNumber || ""}</td>
     <td>${formatDate(item.voucherDate)}</td>
     <td>${item.billAmount || ""}</td>
-
     <td>${item.supplierRef || '-'}</td>
     <td>${item.supplierRefDate || '-'}</td>
     <td>${item.dueDate || '-'}</td>
-
     <td>
     ${item.attachmentPath
     ? `<a href="${item.attachmentPath}" target="_blank" class="btn btn-sm btn-outline-primary">View</a>`
     : `<input type="file" class="fileInput form-control form-control-sm">`
     }
     </td>
-
     <td>
     ${item.attachmentPath
     ? (item.makerRemark || "-")
     : `<input type="text" class="remarkInput form-control form-control-sm" placeholder="Enter remark">`
     }
     </td>
-
     <td>${statusBadge}</td>
-
     <td>
     ${item.attachmentPath
     ? `<span class="text-success">Uploaded</span>`
     : `<button class="submitBtn btn btn-success btn-sm" data-vch="${item.vchNumber}">Submit</button>`
     }
     </td>
-
     <td>${item.totalQuantity ?? 0}</td>
     <td>${item.totalItemValue ?? 0}</td>
     <td>${item.totalItems ?? 0}</td>
-
     <td>
     ${item.paymentStatus === "Paid"
     ? `<span class="badge bg-success">Paid</span>`
     : `<span class="badge bg-danger">UnPaid</span>`
     }
     </td>
-
     <td>${item.paymentDate ? formatDate(item.paymentDate) : "-"}</td>
-
     </tr>`;
     });
 
@@ -477,42 +421,40 @@
     let d = new Date(dateString);
     return d.toISOString().split('T')[0];
     }
-    // ✅ STEP 1: SUBMIT BUTTON CLICK
-    //------------------------------------
+
+
+    
+
+    // ---------------- SUBMIT BUTTON ----------------
     $(document).on("click", ".submitBtn", function () {
 
-    let row = $(this).closest("tr");
-
+    let row       = $(this).closest("tr");
     let vchNumber = $(this).data("vch");
     let fileInput = row.find(".fileInput")[0];
-    let remark = row.find(".remarkInput").val();
+    let remark    = row.find(".remarkInput").val();
 
-    // ✅ Validation
     if (!fileInput.files.length) {
     alert("Please select a file");
     return;
     }
 
-    let file = fileInput.files[0];
-
+    let file     = fileInput.files[0];
     let formData = new FormData();
 
-    // ✅ IMPORTANT (names must match controller)
-    formData.append("vchNumber", vchNumber);
-    formData.append("file", file);
+    formData.append("vchNumber",   vchNumber);
+    formData.append("file",        file);
     formData.append("makerRemark", remark);
 
     $.ajax({
-    url: "/Maker/SubmitBill",   // ✅ correct API
-    type: "POST",
-    data: formData,
+    url:         "/Maker/SubmitBill",
+    type:        "POST",
+    data:        formData,
     contentType: false,
     processData: false,
-
     success: function (res) {
     if (res.success) {
     alert("✅ Uploaded Successfully");
-    loadData(); // refresh table
+    loadData();
     } else {
     alert("❌ Upload failed");
     }
@@ -522,6 +464,6 @@
     }
     });
     });
-   
+
 </script>
 

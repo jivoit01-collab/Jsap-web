@@ -1008,13 +1008,26 @@
             url: '/Checker/CheckerPage'
             },
             'InvoicePayment': {
-            displayName: 'InvoicePayment',
+            displayName: 'Invoice Payment',
             url: '/InvoicePayment/InvoicePaymentPage'
-            }
-            }
             },
+            'Admin': {
+            displayName: 'Admin',
+            url: '/Admin/AdminPage'  
+            }// ✅ FIXED
+            }
+            }
+            };
+            
+                  
+            
+                           
+           
+
+                
             // Add more modules as they come from the API...
-        };
+        
+        
 
         // ============================================================
         // PERMISSION CHECK FUNCTIONS
@@ -1182,15 +1195,16 @@
         }
 
         function generateMenuFromPermissions(permissions) {
-            // Group permissions by moduleName
-            const groupedPermissions = {};
+           // Group permissions by moduleName
+           const groupedPermissions = {};
 
             permissions.forEach(perm => {
-                if (!groupedPermissions[perm.moduleName]) {
-                    groupedPermissions[perm.moduleName] = [];
+               if (!groupedPermissions[perm.moduleName]) {
+                   groupedPermissions[perm.moduleName] = [];
                 }
                 groupedPermissions[perm.moduleName].push(perm);
             });
+            
 
             // Generate HTML
             let menuHtml = '';
@@ -1223,7 +1237,12 @@
 
                 // Create submenu items based on permissions
                 modulePermissions.forEach(perm => {
-                    const permConfig = config.permissions[perm.permissionType];
+                    //const permConfig = config.permissions[perm.permissionType];
+            const permKey = Object.keys(config.permissions).find(key =>
+            key.toLowerCase().trim() === perm.permissionType.toLowerCase().trim()
+            );
+
+            const permConfig = config.permissions[permKey];
 
                     if (permConfig) {
                         // Use configured submenu

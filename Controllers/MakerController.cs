@@ -111,6 +111,13 @@ namespace JSAPNEW.Controllers
             {
                 return Json(new { success = false, message = ex.Message });
             }
+
+        }
+        [HttpGet]
+        public IActionResult GetInvoiceItems(int vchNumber)
+        {
+            var data = _service.GetInvoiceItemDetails(vchNumber);
+            return Json(data);
         }
     }
 }

@@ -33,7 +33,7 @@ namespace JSAPNEW.Controllers
             return Json(data);
         }
 
-        
+
         [HttpPost]
         public IActionResult UpdateCheckerStatus(int vchNumber, string status, string remark)
         {
@@ -46,6 +46,13 @@ namespace JSAPNEW.Controllers
             {
                 return Json(new { success = false, message = ex.Message });
             }
+        }
+    
+    [HttpGet]
+        public IActionResult GetInvoiceItems(decimal serialNumber)
+        {
+            var data = _service.GetInvoiceItemDetails(serialNumber);
+            return Json(data);
         }
     }
 }
