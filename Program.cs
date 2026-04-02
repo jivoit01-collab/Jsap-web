@@ -92,7 +92,6 @@ builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<ITicketsService, TicketsService>();
 builder.Services.AddScoped<CheckerService>();
-//builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<MakerService>();
 builder.Services.AddScoped<InvoicePaymentService>();
 
