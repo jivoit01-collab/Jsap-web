@@ -6,12 +6,12 @@ on:
       - main
 
 env:
-  DOTNET_VERSION: "10.0.x"
-  APP_NAME: "JSAPNEW"
-  PUBLISH_PATH: ./publish
+  DOTNET_VERSION: "10.0.201"
+  APP_NAME: "JSAP"
+  PUBLISH_PATH: .\publish
   # Set your IIS site deployment path on the Windows server
-  DEPLOY_PATH: C:\inetpub\wwwroot\JSAPNEW
-  IIS_SITE_NAME: "JSAPNEW"
+  DEPLOY_PATH: D:\LiveProject\JSAP
+  IIS_SITE_NAME: "JSAP"
 
 jobs:
   build-and-deploy:
@@ -32,6 +32,8 @@ jobs:
       - name: Restore Dependencies
         run: dotnet restore JSAPNEW.sln
 
+      - name: Clean
+        run: dotnet clean JSAPNEW.sln
       # Step 4: Build the project in Release mode
       - name: Build
         run: dotnet build JSAPNEW.sln --configuration Release --no-restore
@@ -97,12 +99,12 @@ jobs:
       # Step 9: Verify the site is running
       - name: Health Check
         run: |
-          Start-Sleep -Seconds 5
+          Start-Sleep -Seconds 10
           try {
-            $response = Invoke-WebRequest -Uri "http://localhost/${{ env.IIS_SITE_NAME }}" -UseBasicParsing -TimeoutSec 10
+            $response = Invoke-WebRequest -Uri "https://dsr.jivocanola.com:5000/" -UseBasicParsing -TimeoutSec 15
             Write-Host "Site is UP - Status: $($response.StatusCode)"
           } catch {
-            Write-Host "WARNING: Health check failed - $($_.Exception.Message)"
-            Write-Host "Please verify the site manually."
+            Write-Host "ERROR: Health check failed - $($_.Exception.Message)"
+          exit 1
           }
         shell: powershell
