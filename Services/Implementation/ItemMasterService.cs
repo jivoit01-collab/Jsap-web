@@ -1394,9 +1394,9 @@ namespace JSAPNEW.Services.Implementation
 
                 // Determine CostAccountingMethod based on EvalSystem
                 string costAccountingMethod = first.EvalSystem == "F" ? "bis_FIFO" : (first.EvalSystem == "B" ? "bis_SNB" : ""); // Default if neither F nor B
-                string sapSalesItem = (first.SellItem ?? "").Trim().Equals("Y", StringComparison.OrdinalIgnoreCase) ? "tYES" : "tNO";
-                string sapPurchaseItem = (first.PrchseItem ?? "").Trim().Equals("Y", StringComparison.OrdinalIgnoreCase) ? "tYES" : "tNO";
-                string sapInventoryItem = (first.InvItem ?? "").Trim().Equals("Y", StringComparison.OrdinalIgnoreCase) ? "tYES" : "tNO";
+                string sapSalesItem = (first.SellItem ?? "tYES").Trim().Equals("Y", StringComparison.OrdinalIgnoreCase) ? "tYES" : "tNO";
+                string sapPurchaseItem = (first.PrchseItem ?? "tYES").Trim().Equals("Y", StringComparison.OrdinalIgnoreCase) ? "tYES" : "tNO";
+                string sapInventoryItem = (first.InvItem ?? "tYES").Trim().Equals("Y", StringComparison.OrdinalIgnoreCase) ? "tYES" : "tNO";
 
                 bool isSales = sapSalesItem == "tYES";
                 bool isPurchase = sapPurchaseItem == "tYES";
