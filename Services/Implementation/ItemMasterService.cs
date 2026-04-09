@@ -1464,9 +1464,51 @@ namespace JSAPNEW.Services.Implementation
                 };
 
                 // ── U_TYPE: Premium vs Commodity ──
-                string uType = ((first.IsLitre ?? "").Trim().Equals("N", StringComparison.OrdinalIgnoreCase)
-                    && new[] { "CANOLA", "OLIVE", "GROUNDNUT" }.Contains(first.Variety?.Trim() ?? "", StringComparer.OrdinalIgnoreCase))
-                    ? "PREMIUM" : "COMMODITY";
+                string isLitre = (first.IsLitre ?? "").Trim();
+                string variety = (first.Variety?.Trim() ?? "");
+                bool isPremium =
+                    (isLitre.Equals("N", StringComparison.OrdinalIgnoreCase)
+                        && new[] { "CANOLA", "OLIVE", "GROUNDNUT" }.Contains(variety, StringComparer.OrdinalIgnoreCase))
+                    || (isLitre.Equals("Y", StringComparison.OrdinalIgnoreCase)
+                        && new[] { "EXTRA VIRGIN", "POMACE", "EXTRA LIGHT" }.Contains(variety, StringComparer.OrdinalIgnoreCase));
+                string uType = isPremium ? "PREMIUM" : "COMMODITY";
+
+                // ── Series: mapped by (company, groupCode) — differs across companies ──
+                int? seriesFromGroup = (company, gc) switch
+                {
+                    // Same series across all companies
+                    (_, "102") => 389,
+                    (_, "105") => 391,
+                    (_, "106") => 392,
+                    (_, "107") => 393,
+                    (_, "109") => 394,
+
+                    // Group 101 — BEV & MART only
+                    (2, "101") or (3, "101") => 395,
+
+                    // Group 110 — BEV & MART only
+                    (2, "110") or (3, "110") => 390,
+
+                    // Group 111 — OIL=395, BEV=822
+                    (1, "111") => 395,
+                    (2, "111") => 822,
+
+                    // Group 112 — OIL=390, BEV=824
+                    (1, "112") => 390,
+                    (2, "112") => 824,
+
+                    // Group 113 — OIL only
+                    (1, "113") => 820,
+
+                    // Group 114 — OIL=821, BEV=2367
+                    (1, "114") => 821,
+                    (2, "114") => 2367,
+
+                    // Group 115 — OIL only
+                    (1, "115") => 2364,
+
+                    _ => first.Series
+                };
 
                 var tree = new ItemsTree
                 {
@@ -1502,7 +1544,7 @@ namespace JSAPNEW.Services.Implementation
                     ManageSerialNumbers = "tNO",
                     ForceSelectionOfSerialNumber = "tYES",
                     SRIAndBatchManageMethod = "bomm_OnEveryTransaction",
-                    Series = first.Series,
+                    Series = seriesFromGroup,
                     TaxType = "tt_Yes",
                     GSTRelevnt = "tYES",
                     GSTTaxCategory = "gtc_Regular",
@@ -1602,11 +1644,13 @@ namespace JSAPNEW.Services.Implementation
                                 }
                                 else
                                 {
-                                    // MART adjustments — clear UDFs that don't exist, set WTLiable=tNO
+                                    // MART adjustments — clear UDFs that don't exist, recalculate MART-specific fields
                                     tree.U_FA_TYPE = null;
                                     tree.U_FA_Type = null;
                                     tree.U_Packing_Type = null;
                                     tree.WTLiable = "tNO";
+                                    // Recalculate CostAccountingMethod for MART (not BEV's always-FIFO rule)
+                                    tree.CostAccountingMethod = tree.ManageBatchNumbers == "tYES" ? "bis_SNB" : "bis_FIFO";
 
                                     var martHandler = new HttpClientHandler
                                     {
