@@ -119,20 +119,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowSpecificOrigin");
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapControllers();
 app.UseStaticFiles(); // Enable serving files from wwwroot
 app.UseRouting();
+app.UseCors("AllowSpecificOrigin");
 app.UseSession();
+app.UseAuthentication();
+app.UseAuthorization();
 
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapControllerRoute(
-        name: "default",
-        pattern: "{controller=Login}/{action=Index}/{id?}");
-});
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Login}/{action=Index}/{id?}");
+app.MapControllers();
 
 // Health check endpoint for CI/CD deployment verification
 app.MapGet("/health", () => Results.Ok(new
