@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Sap.Data.Hana;
 using ServiceStack;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Globalization;
 using System.Net.Http.Headers;
@@ -27,6 +28,9 @@ namespace JSAPNEW.Services.Implementation
         private readonly string _HanaLiveMartconnectionString;
         private readonly IBom2Service _bom2Service;
         private readonly string _sapBaseUrl;
+
+        // Prevents concurrent SAP calls for the same item (e.g., double-click approve)
+        private static readonly ConcurrentDictionary<int, SemaphoreSlim> _approvalLocks = new();
 
 
 
@@ -394,6 +398,21 @@ namespace JSAPNEW.Services.Implementation
 
         public async Task<ItemMasterModel> ApproveItemAsync(ApproveItemModel request)
         {
+            // ── Concurrency guard: prevent duplicate SAP calls for the same item ──
+            var itemLock = _approvalLocks.GetOrAdd(request.itemId, _ => new SemaphoreSlim(1, 1));
+
+            if (!await itemLock.WaitAsync(TimeSpan.FromSeconds(5)))
+            {
+                return new ItemMasterModel
+                {
+                    Success = false,
+                    Message = $"Item {request.itemId} is already being processed. Please wait and try again.",
+                    ApprovalStatus = "Blocked",
+                    SapStatus = "Skipped — concurrent request detected",
+                    MartStatus = "Skipped"
+                };
+            }
+
             try
             {
                 using (SqlConnection conn = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
@@ -407,6 +426,63 @@ namespace JSAPNEW.Services.Implementation
                     var sapStatuses  = new List<string>();
                     var martStatuses = new List<string>();
 
+                    // ── Step 1: Check if this is the last approval stage (pending items exist) ──
+                    List<PendingItemApiInsertionsModel> pendingItems = null;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        pendingItems = await GetPendingItemApiInsertionsAsync(request.itemId);
+                        if (pendingItems != null && pendingItems.Count > 0)
+                            break;
+                        await Task.Delay(1000);
+                    }
+
+                    bool isLastStage = pendingItems != null && pendingItems.Count > 0;
+
+                    // ── Step 2: If last stage, POST to SAP FIRST before approving ──
+                    if (isLastStage)
+                    {
+                        Console.WriteLine($"[INFO] Last approval stage for FlowId: {request.itemId}. Posting to SAP before approving...");
+                        Console.WriteLine($"[INFO] {pendingItems.Count} pending item(s) fetched for FlowId: {request.itemId}");
+
+                        var apiResults = await PostItemsToSAPAsync(pendingItems);
+
+                        // Collect SAP and MART statuses from results
+                        bool allSapSuccess = true;
+                        var sapErrors = new List<string>();
+
+                        foreach (var r in apiResults)
+                        {
+                            sapStatuses.Add(r.IsSuccess ? "Success" : $"Failed: {r.Message}");
+                            if (!string.IsNullOrEmpty(r.MartStatus))
+                                martStatuses.Add(r.MartStatus);
+
+                            if (!r.IsSuccess)
+                            {
+                                allSapSuccess = false;
+                                sapErrors.Add(r.Message);
+                            }
+                        }
+
+                        // ── If SAP creation failed, DO NOT approve — return exact error to frontend ──
+                        if (!allSapSuccess)
+                        {
+                            string errorDetail = string.Join("; ", sapErrors);
+                            Console.WriteLine($"[ERROR] SAP creation failed for FlowId: {request.itemId}. Approval blocked. Errors: {errorDetail}");
+
+                            return new ItemMasterModel
+                            {
+                                Success        = false,
+                                Message        = errorDetail,
+                                ApprovalStatus = "Blocked",
+                                SapStatus      = string.Join("; ", sapStatuses),
+                                MartStatus     = martStatuses.Count > 0 ? string.Join("; ", martStatuses) : "Skipped"
+                            };
+                        }
+
+                        resultMessages.Add("SAP item created successfully");
+                    }
+
+                    // ── Step 3: SAP succeeded (or intermediate stage) — now approve in DB ──
                     using (SqlCommand cmd = new SqlCommand("[imc].[jsApproveItem]", conn))
                     {
                         cmd.CommandType = CommandType.StoredProcedure;
@@ -419,118 +495,84 @@ namespace JSAPNEW.Services.Implementation
                         approvalStatus = "Done";
                         resultMessages.Add(result?.ToString() ?? $"Approved Document of FlowId {request.itemId}");
 
-                        List<PendingItemApiInsertionsModel> pendingItems = null;
-
-                        // Retry logic (important)
-                        for (int i = 0; i < 3; i++)
-                        {
-                            pendingItems = await GetPendingItemApiInsertionsAsync(request.itemId);
-
-                            if (pendingItems != null && pendingItems.Count > 0)
-                                break;
-
-                            await Task.Delay(1000); // wait 1 second
-                        }
-
-                        // Call API after data is available
-                        if (pendingItems != null && pendingItems.Count > 0)
-                        {
-                            Console.WriteLine($"[INFO] Approval completed for FlowId: {request.itemId}");
-                            Console.WriteLine($"[INFO] {pendingItems.Count} pending item(s) fetched for FlowId: {request.itemId}");
-
-                            // PostItemsToSAPAsync now handles both SAP and MART internally
-                            var apiResults = await PostItemsToSAPAsync(pendingItems);
+                        if (isLastStage)
                             resultMessages.Add("API Triggered after final approval");
+                    }
 
-                            // Collect SAP and MART statuses from results
-                            foreach (var r in apiResults)
-                            {
-                                sapStatuses.Add($"[InitId:{r.ItemId}] {(r.IsSuccess ? "Success" : $"Failed: {r.Message}")}");
-                                if (!string.IsNullOrEmpty(r.MartStatus))
-                                    martStatuses.Add($"[InitId:{r.ItemId}] {r.MartStatus}");
-                            }
-                        }
-                        var notifications = await GetItemUserIdsSendNotificatiosAsync(request.itemId);
-                        if (notifications != null)
-                            allNotificationModels.AddRange(notifications);
+                    // ── Step 4: Send notifications ──
+                    var notifications = await GetItemUserIdsSendNotificatiosAsync(request.itemId);
+                    if (notifications != null)
+                        allNotificationModels.AddRange(notifications);
 
-                        // ✅ FIX 1: Deduplicate notification models (same userId multiple times)
-                        allNotificationModels = allNotificationModels
-                            .Where(m => !string.IsNullOrWhiteSpace(m.userIdsToApprove))
-                            .GroupBy(m => m.userIdsToApprove)
-                            .Select(g => g.First())
-                            .ToList();
+                    allNotificationModels = allNotificationModels
+                        .Where(m => !string.IsNullOrWhiteSpace(m.userIdsToApprove))
+                        .GroupBy(m => m.userIdsToApprove)
+                        .Select(g => g.First())
+                        .ToList();
 
-                        // ✅ FIX 2: Get unique user IDs
-                        var uniqueUserIds = new HashSet<int>(
-                            allNotificationModels
-                                .SelectMany(m => m.userIdsToApprove.Split(',', StringSplitOptions.RemoveEmptyEntries))
-                                .Select(s => int.Parse(s.Trim()))
-                        );
+                    var uniqueUserIds = new HashSet<int>(
+                        allNotificationModels
+                            .SelectMany(m => m.userIdsToApprove.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                            .Select(s => int.Parse(s.Trim()))
+                    );
 
-                        //int? initId = await GetItemUserDocumentIdAsync(request.itemId);
-                        // int docId = initId ?? request.itemId;
-                        int docId = request.itemId;
+                    int docId = request.itemId;
 
-                        string notificationTitle = "Item Master Request";
-                        string notificationBody = $"A new Item (Item Id: {docId}) is awaiting your approval.";
+                    string notificationTitle = "Item Master Request";
+                    string notificationBody = $"A new Item (Item Id: {docId}) is awaiting your approval.";
 
-                        var data = new Dictionary<string, string>
-                     {
-                         { "screen", "Item Master" },
-                         { "company", request.company.ToString() },
-                         { "ItemId", docId.ToString() }
-                     };
+                    var data = new Dictionary<string, string>
+                    {
+                        { "screen", "Item Master" },
+                        { "company", request.company.ToString() },
+                        { "ItemId", docId.ToString() }
+                    };
 
-                        // ✅ Track sent tokens to avoid duplicates
-                        var sentTokens = new HashSet<string>();
+                    var sentTokens = new HashSet<string>();
 
-                        foreach (var userId in uniqueUserIds)
+                    foreach (var userId in uniqueUserIds)
+                    {
+                        var fcmTokenList = await _notificationService.GetUserFcmTokenAsync(userId);
+                        if (fcmTokenList == null || fcmTokenList.Count == 0)
+                            continue;
+
+                        foreach (var token in fcmTokenList)
                         {
-                            var fcmTokenList = await _notificationService.GetUserFcmTokenAsync(userId);
-                            if (fcmTokenList == null || fcmTokenList.Count == 0)
+                            if (string.IsNullOrWhiteSpace(token.fcmToken))
                                 continue;
 
-                            foreach (var token in fcmTokenList)
-                            {
-                                if (string.IsNullOrWhiteSpace(token.fcmToken))
-                                    continue;
+                            if (sentTokens.Contains(token.fcmToken))
+                                continue;
 
-                                if (sentTokens.Contains(token.fcmToken))
-                                    continue;
+                            await _notificationService.SendPushNotificationAsync(
+                                notificationTitle,
+                                notificationBody,
+                                token.fcmToken,
+                                data
+                            );
 
-                                await _notificationService.SendPushNotificationAsync(
-                                    notificationTitle,
-                                    notificationBody,
-                                    token.fcmToken,
-                                    data
-                                );
-
-                                sentTokens.Add(token.fcmToken);
-                            }
-
-                            // ✅ Insert database notification once per user
-                            await _notificationService.InsertNotificationAsync(new InsertNotificationModel
-                            {
-                                userId = userId,
-                                title = "Item Master",
-                                message = notificationBody,
-                                pageId = 6,
-                                data = $"Flow ID: {request.itemId}",
-                                BudgetId = request.itemId
-                            });
+                            sentTokens.Add(token.fcmToken);
                         }
 
-                        return new ItemMasterModel
+                        await _notificationService.InsertNotificationAsync(new InsertNotificationModel
                         {
-                            Success       = true,
-                            Message       = string.Join(" | ", resultMessages),
-                            ApprovalStatus = approvalStatus,
-                            SapStatus      = sapStatuses.Count  > 0 ? string.Join("; ", sapStatuses)  : "Skipped (intermediate approval stage)",
-                            MartStatus     = martStatuses.Count > 0 ? string.Join("; ", martStatuses) : "Skipped (not FG item or intermediate stage)"
-                        };
-
+                            userId = userId,
+                            title = "Item Master",
+                            message = notificationBody,
+                            pageId = 6,
+                            data = $"Flow ID: {request.itemId}",
+                            BudgetId = request.itemId
+                        });
                     }
+
+                    return new ItemMasterModel
+                    {
+                        Success        = true,
+                        Message        = string.Join(" | ", resultMessages),
+                        ApprovalStatus = approvalStatus,
+                        SapStatus      = sapStatuses.Count  > 0 ? string.Join("; ", sapStatuses)  : "Skipped (intermediate approval stage)",
+                        MartStatus     = martStatuses.Count > 0 ? string.Join("; ", martStatuses) : "Skipped (not FG item or intermediate stage)"
+                    };
                 }
             }
             catch (SqlException ex)
@@ -540,6 +582,13 @@ namespace JSAPNEW.Services.Implementation
             catch (Exception ex)
             {
                 return new ItemMasterModel { Success = false, Message = $"Error: {ex.Message}" };
+            }
+            finally
+            {
+                itemLock.Release();
+                // Clean up lock entry if no one else is waiting
+                if (itemLock.CurrentCount == 1)
+                    _approvalLocks.TryRemove(request.itemId, out _);
             }
         }
 
@@ -1336,6 +1385,21 @@ namespace JSAPNEW.Services.Implementation
                 var first = itemList.First();
                 int company = first.Company;
 
+                // ── Duplicate check: mark as Processing and check if already created ──
+                var previousTag = await UpdateItemApiStatusAsync(first.InitId, "Processing SAP creation", "P");
+                if (previousTag == "Y")
+                {
+                    Console.WriteLine($"[INFO] Item {first.InitId} already created in SAP (tag=Y). Skipping duplicate API call.");
+                    results.Add(new SapItemSyncResult
+                    {
+                        ItemId = first.InitId,
+                        IsSuccess = true,
+                        Message = "Item already created in SAP (skipped duplicate call)",
+                        MartStatus = "Skipped — primary item already exists"
+                    });
+                    continue;
+                }
+
                 SAPSessionModel session;
 
                 if (company == 1)
@@ -1719,7 +1783,7 @@ namespace JSAPNEW.Services.Implementation
                 }
                 catch (Exception ex)
                 {
-                    string errMsg = $"-1000: {ex.Message}";
+                    string errMsg = ex.Message;
                     await LogApiErrorAsync(new LogApiErrorRequest
                     {
                         ReferenceID = first.InitId,
@@ -1746,13 +1810,16 @@ namespace JSAPNEW.Services.Implementation
             return results;
         }
 
-        private async Task UpdateItemApiStatusAsync(int itemId, string apiMessage, string tag)
+        private async Task<string?> UpdateItemApiStatusAsync(int itemId, string apiMessage, string tag)
         {
-            var sqlQuery = "EXEC  [imc].[jsUpdateItemApiStatus] @itemId,@apiMessage,@tag";
-
             using (var connection = new SqlConnection(_connectionString))
             {
-                await connection.ExecuteAsync(sqlQuery, new { itemId, apiMessage, tag });
+                await connection.OpenAsync();
+                var previousTag = await connection.QueryFirstOrDefaultAsync<string>(
+                    "EXEC [imc].[jsUpdateItemApiStatus] @itemId, @apiMessage, @tag",
+                    new { itemId, apiMessage, tag }
+                );
+                return previousTag;
             }
         }
 
@@ -1765,12 +1832,12 @@ namespace JSAPNEW.Services.Implementation
                 var value = obj["error"]?["message"]?["value"]?.ToString();
 
                 return !string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(value)
-                    ? $"Code - {code}:Message- {value}"
-                    : "-5000: Unknown SAP error structure";
+                    ? $"{value} (SAP Error Code: {code})"
+                    : "Unknown SAP error";
             }
             catch
             {
-                return "-5001: Failed to parse SAP error response";
+                return "Failed to parse SAP error response";
             }
         }
 
