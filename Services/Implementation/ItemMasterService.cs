@@ -19,7 +19,7 @@ using static JSAPNEW.Models.ItemMasterModel;
 namespace JSAPNEW.Services.Implementation
 {
     public class ItemMasterService : IItemMasterService
-    {
+    {   
         private readonly IConfiguration _configuration;
         private readonly Dictionary<int, HanaCompanySettings> _hanaSettings;
         private readonly string _connectionString;
@@ -31,6 +31,11 @@ namespace JSAPNEW.Services.Implementation
 
         // Prevents concurrent SAP calls for the same item (e.g., double-click approve)
         private static readonly ConcurrentDictionary<int, SemaphoreSlim> _approvalLocks = new();
+
+        // Per-InitId gate around PostItemsToSAPAsync. Protects every caller (approval + manual
+        // endpoint + SFTP trigger) from racing against each other and double-POSTing the same
+        // item to SAP. Keyed by InitId, not FlowId, because that is the unit SAP receives.
+        private static readonly ConcurrentDictionary<int, SemaphoreSlim> _sapPostLocks = new();
 
 
 
@@ -586,9 +591,10 @@ namespace JSAPNEW.Services.Implementation
             finally
             {
                 itemLock.Release();
-                // Clean up lock entry if no one else is waiting
-                if (itemLock.CurrentCount == 1)
-                    _approvalLocks.TryRemove(request.itemId, out _);
+                // Intentionally do NOT remove the lock from _approvalLocks: a concurrent thread
+                // could have just fetched this same SemaphoreSlim via GetOrAdd and be sitting in
+                // WaitAsync; removing it here would let a future GetOrAdd create a fresh lock,
+                // defeating mutual exclusion. Memory cost is bounded by the active FlowId set.
             }
         }
 
@@ -1385,7 +1391,29 @@ namespace JSAPNEW.Services.Implementation
                 var first = itemList.First();
                 int company = first.Company;
 
+                // ── Per-InitId gate: blocks a second concurrent POST for the same item,
+                //    regardless of entry point (approval flow, manual /Items endpoint, SFTP
+                //    trigger). Defends against the observed duplicate-creation race where two
+                //    requests both saw previousTag != "Y" before either UPDATE landed.
+                var postLock = _sapPostLocks.GetOrAdd(first.InitId, _ => new SemaphoreSlim(1, 1));
+                if (!await postLock.WaitAsync(TimeSpan.FromSeconds(30)))
+                {
+                    results.Add(new SapItemSyncResult
+                    {
+                        ItemId = first.InitId,
+                        IsSuccess = false,
+                        Message = "Another request is already creating this item in SAP. Please retry shortly.",
+                        MartStatus = "Skipped — concurrent SAP post in progress"
+                    });
+                    continue;
+                }
+
+                try
+                {
                 // ── Duplicate check: mark as Processing and check if already created ──
+                //    Safe inside the per-InitId lock: check-then-update cannot interleave with
+                //    another in-process caller, so "previousTag == Y" reliably short-circuits
+                //    any retry once the first POST has succeeded.
                 var previousTag = await UpdateItemApiStatusAsync(first.InitId, "Processing SAP creation", "P");
                 if (previousTag == "Y")
                 {
@@ -1804,6 +1832,14 @@ namespace JSAPNEW.Services.Implementation
                         Message = errMsg
                     });
                     await UpdateItemApiStatusAsync(first.InitId, errMsg, false.ToString());
+                }
+                }
+                finally
+                {
+                    // Always release so retries (e.g., after a transient SAP failure marked "N")
+                    // can proceed. Lock stays in the dictionary — cheap, and avoids a race where
+                    // a second waiter acquires just before we remove it.
+                    postLock.Release();
                 }
             }
 
