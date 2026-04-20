@@ -210,6 +210,48 @@ namespace JSAPNEW.Controllers
             return false;
         }
 
+        private async Task<bool> HasHierarchyAdminPermissionAsync(int userId)
+        {
+            try
+            {
+                var selectedCompanyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
+                var companyIds = new List<int> { selectedCompanyId };
+                var companyListJson = HttpContext.Session.GetString("companyList");
+                if (!string.IsNullOrEmpty(companyListJson))
+                {
+                    try
+                    {
+                        var companies = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(companyListJson);
+                        if (companies != null)
+                            foreach (var c in companies)
+                                if (c.TryGetProperty("id", out var idProp) && idProp.TryGetInt32(out int cid) && !companyIds.Contains(cid))
+                                    companyIds.Add(cid);
+                    }
+                    catch { }
+                }
+                var cs = _configuration.GetConnectionString("DefaultConnection");
+                foreach (var companyId in companyIds)
+                {
+                    using var conn = new SqlConnection(cs);
+                    using var cmd = new SqlCommand("jsGetUserEffectivePermissions", conn) { CommandType = System.Data.CommandType.StoredProcedure };
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.Parameters.AddWithValue("@companyId", companyId);
+                    await conn.OpenAsync();
+                    using var reader = await cmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        var modName = reader["moduleName"]?.ToString() ?? "";
+                        var permType = reader["permissionType"]?.ToString() ?? "";
+                        if (modName.Equals("Employee Hierarchy", StringComparison.OrdinalIgnoreCase)
+                            && permType.Equals("Hierarchy_Admin", StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
         private async Task<bool> HasEmployeeHierarchyPagePermissionAsync(int userId)
         {
             try
@@ -362,6 +404,7 @@ namespace JSAPNEW.Controllers
                 || (hierRole == "None" && IsAdmin(roleName));
 
             SetViewBagData(empCode, roleName, userInfo.FirstName, userInfo.LastName, isHierarchyAdmin, hierRole);
+            ViewBag.CanViewSales = await HasHierarchyAdminPermissionAsync(userId.Value);
 
             if (!string.IsNullOrEmpty(empCode))
             {

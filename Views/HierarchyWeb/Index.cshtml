@@ -4318,8 +4318,11 @@
                     <span class="rc-sep"></span><span class="rc-name">@empName</span>
                 </div>
             }
-            <button class="eh-btn eh-btn-sal" id="btnSalesToggle" onclick="toggleSalesHierarchy()"><i class="bi bi-diagram-3"></i> Show Sales Team</button>
-            <button class="eh-btn eh-btn-dup" id="btnSalesDuplicates" onclick="showSalesDuplicates()" style="display:none"><i class="bi bi-intersect"></i> <span id="btnSalesDuplicatesLabel">Duplicates (0)</span></button>
+            @if ((bool)(ViewBag.CanViewSales ?? false))
+            {
+                <button class="eh-btn eh-btn-sal" id="btnSalesToggle" onclick="toggleSalesHierarchy()"><i class="bi bi-diagram-3"></i> Show Sales Team</button>
+                <button class="eh-btn eh-btn-dup" id="btnSalesDuplicates" onclick="showSalesDuplicates()" style="display:none"><i class="bi bi-intersect"></i> <span id="btnSalesDuplicatesLabel">Duplicates (0)</span></button>
+            }
             <button class="eh-btn eh-btn-export" onclick="ehExport()"><i class="bi bi-file-earmark-excel"></i> Export</button>
         </div>
     </header>
