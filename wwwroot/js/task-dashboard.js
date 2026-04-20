@@ -7,7 +7,7 @@ let currentViewMode = 'OWN';
 let currentPage = 1;
 let teamMembers = [];
 let taskRowCount = 1;
-let selectedTaskType = 'SELF'; // SELF or ASSIGN
+let selectedTaskType = 'SELF'; // SELF | ASSIGN | HOD
 let selectedTimeSlot = null;   // 10AM-1PM | 1PM-4PM | 4PM-7PM
 let hierarchyData = null;      // HOD dept tree
 let breakdownData = [];        // Per-employee task counts
@@ -306,7 +306,7 @@ async function refreshTaskDashboardState() {
         await loadHierarchyTree();
     }
 
-    if (ROLE_TYPE_ID === 1 || ROLE_TYPE_ID === 2 || IS_ADMIN) {
+    if (ROLE_TYPE_ID === 1 || ROLE_TYPE_ID === 2 || IS_ADMIN || CAN_ASSIGN_HOD) {
         await loadTeamMembers(true);
     }
 
@@ -338,7 +338,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (badge) badge.textContent = IS_ADMIN ? (ADMIN_LABEL || 'Task Admin') : (roles[ROLE_TYPE_ID] || 'User');
 
         // ---- Role-based features for HOD / Sub HOD ----
-        var isManager = (ROLE_TYPE_ID === 1 || ROLE_TYPE_ID === 2 || IS_ADMIN);
+        var isManager = (ROLE_TYPE_ID === 1 || ROLE_TYPE_ID === 2 || IS_ADMIN || CAN_ASSIGN_HOD);
         console.log('Is Manager (HOD/SubHOD/Admin):', isManager);
 
         if (isManager) {
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Sub-HOD sees own + team tasks
             currentViewMode = 'ALL';
 
-            if (ROLE_TYPE_ID === 1 || ROLE_TYPE_ID === 2 || IS_ADMIN) {
+            if (ROLE_TYPE_ID === 1 || ROLE_TYPE_ID === 2 || IS_ADMIN || CAN_ASSIGN_HOD) {
                 // HOD / Sub HOD: two-tab layout — My Overview | Team Overview
                 if (ROLE_TYPE_ID === 1 && !IS_ADMIN) {
                     document.body.classList.remove('hod-view');
@@ -376,11 +376,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         <button id="tabTeamOverview" onclick="switchSubHODTab('team')" style="padding:9px 24px;border-radius:9px;border:1.5px solid #e2e8f0;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#1e293b;transition:all .2s;display:flex;align-items:center;gap:7px;">
                             <i class="fas fa-users"></i> Team Overview
                         </button>
-                        ${IS_ADMIN ? `<button id="tabAllHodOverview" onclick="switchSubHODTab('allhod')" style="padding:9px 24px;border-radius:9px;border:1.5px solid #e2e8f0;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#1e293b;transition:all .2s;display:flex;align-items:center;gap:7px;">
+                        ${(IS_ADMIN || CAN_ASSIGN_HOD) ? `<button id="tabAllHodOverview" onclick="switchSubHODTab('allhod')" style="padding:9px 24px;border-radius:9px;border:1.5px solid #e2e8f0;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#1e293b;transition:all .2s;display:flex;align-items:center;gap:7px;">
                             <i class="fas fa-user-tie"></i> All HOD Overview
                         </button>` : ''}
                     </div>`;
                     actionBar.parentNode.insertBefore(tabBar, actionBar.nextSibling);
+                    // Force white text on My Overview after DOM insertion
+                    requestAnimationFrame(function () {
+                        var myBtn = document.getElementById('tabMyOverview');
+                        if (myBtn) myBtn.style.setProperty('color', '#fff', 'important');
+                    });
                 }
 
                 // MY OVERVIEW (default): show own stats + regular task list
@@ -407,6 +412,7 @@ document.addEventListener('DOMContentLoaded', function () {
     loadTasks().catch(e => console.error('Tasks load error:', e));
     loadTeamMembers().catch(e => console.error('Team load error:', e));
     if (ROLE_TYPE_ID === 1) loadHierarchyTree().catch(e => console.error('Hierarchy error:', e));
+    if (CAN_ASSIGN_HOD) loadAllHodMembers().catch(e => console.error('HOD members load error:', e));
 });
 
 function formatDateFull(d) {
@@ -449,21 +455,43 @@ function selectTaskType(type) {
         if (ctAssignTo) ctAssignTo.value = '';
     }
 
-    if (type === 'ASSIGN') {
-        // Show assign dropdown
+    if (type === 'HOD') {
+        // HOD Task: assign to an HOD
         assignSection.style.display = 'block';
         ctAssignTo.required = true;
         if (timeSlotSec) timeSlotSec.style.display = 'none';
         if (autoTimeSlotSec) autoTimeSlotSec.style.display = 'block';
         if (autoTimeSlotValue) autoTimeSlotValue.textContent = selectedTimeSlot || getCurrentTimeSlot() || '10AM-1PM';
-        if (assignSectionLabel) assignSectionLabel.innerHTML = '<i class="fas fa-user-check"></i> ' + (IS_ADMIN ? 'Select HOD' : ((ROLE_TYPE_ID === 1) ? 'Select Team Member' : 'Select Executive')) + ' <span class="td-req">*</span>';
+        if (assignSectionLabel) assignSectionLabel.innerHTML = '<i class="fas fa-user-tie"></i> Select HOD <span class="td-req">*</span>';
+        if (modalSubtitle) modalSubtitle.textContent = 'Assign task to an HOD';
+        if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-user-tie"></i> Assign to HOD';
+
+        if (allHodMembers.length > 0) {
+            populateAssignDropdown(allHodMembers);
+        } else {
+            ctAssignTo.innerHTML = '<option value="">Loading HODs...</option>';
+            loadAllHodMembers(true).then(function () {
+                populateAssignDropdown(allHodMembers);
+            }).catch(function () {
+                ctAssignTo.innerHTML = '<option value="">Error loading HODs</option>';
+            });
+        }
+    } else if (type === 'ASSIGN') {
+        // Show assign dropdown — team members only
+        assignSection.style.display = 'block';
+        ctAssignTo.required = true;
+        if (timeSlotSec) timeSlotSec.style.display = 'none';
+        if (autoTimeSlotSec) autoTimeSlotSec.style.display = 'block';
+        if (autoTimeSlotValue) autoTimeSlotValue.textContent = selectedTimeSlot || getCurrentTimeSlot() || '10AM-1PM';
+        var assignLabelText = IS_ADMIN ? 'Select HOD' : ((ROLE_TYPE_ID === 1) ? 'Select Sub HOD / Executive' : 'Select Executive');
+        if (assignSectionLabel) assignSectionLabel.innerHTML = '<i class="fas fa-user-check"></i> ' + assignLabelText + ' <span class="td-req">*</span>';
         var assignLabel = IS_ADMIN
             ? 'Assign task to any HOD'
-            : ((ROLE_TYPE_ID === 1) ? 'Assign task to Sub HOD or Executive' : 'Assign a task to your team member');
+            : ((ROLE_TYPE_ID === 1) ? 'Assign task to your Sub HOD or Executive' : 'Assign a task to your team member');
         if (modalSubtitle) modalSubtitle.textContent = assignLabel;
         if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-user-plus"></i> Assign Task';
 
-        // HOD assign dropdown must come from scoped hierarchy members, not generic teamMembers.
+        // HOD: show own Sub-HOD / Executive team only
         if (ROLE_TYPE_ID === 1 && !IS_ADMIN) {
             var hodMembers = getKnownTeamMembers().filter(function (member) {
                 var roleTypeId = getValue(member, 'roleTypeId', 'RoleTypeId') || 0;
@@ -552,13 +580,13 @@ function populateAssignDropdown(members) {
     var isDirectorMode = IS_ADMIN;
     var placeholder = isDirectorMode
         ? '-- Select HOD --'
-        : ((ROLE_TYPE_ID === 1) ? '-- Select Sub HOD / Executive --' : '-- Select Executive --');
+        : (ROLE_TYPE_ID === 1 ? '-- Select Sub HOD / Executive --' : '-- Select Executive --');
     sel.innerHTML = '<option value="">' + placeholder + '</option>';
 
     var safeMembers = Array.isArray(members) ? members.slice() : [];
 
     // Safety guard: HOD must only assign to own Sub-HOD / Executive team, never another HOD.
-    if (ROLE_TYPE_ID === 1 && !IS_ADMIN) {
+    if (ROLE_TYPE_ID === 1 && !IS_ADMIN && !CAN_ASSIGN_HOD) {
         safeMembers = safeMembers.filter(function (m) {
             var roleTypeId = getValue(m, 'roleTypeId', 'RoleTypeId') || 0;
             return roleTypeId === 2 || roleTypeId === 3;
@@ -579,7 +607,7 @@ function populateAssignDropdown(members) {
     });
 
     if (safeMembers.length === 0) {
-        sel.innerHTML = '<option value="">' + (isDirectorMode ? '-- Select HOD --' : 'No Sub HOD / Executive found') + '</option>';
+        sel.innerHTML = '<option value="">' + (isDirectorMode ? 'No HOD found' : 'No Sub HOD / Executive found') + '</option>';
     }
 }
 
@@ -723,8 +751,8 @@ function switchSubHODTab(tab) {
         if (hodTableSection) hodTableSection.style.display = 'none';
     } else {
         currentViewMode = 'TEAM';
-        if (ROLE_TYPE_ID === 1 && !IS_ADMIN) document.body.classList.add('hod-view');
-        if (ROLE_TYPE_ID === 2 || IS_ADMIN) document.body.classList.add('subhod-view');
+        if (ROLE_TYPE_ID === 1 && !IS_ADMIN && !(tab === 'allhod' && CAN_ASSIGN_HOD)) document.body.classList.add('hod-view');
+        if (ROLE_TYPE_ID === 2 || IS_ADMIN || (tab === 'allhod' && CAN_ASSIGN_HOD)) document.body.classList.add('subhod-view');
         // Hide own stats
         var myTasksSec = document.getElementById('myTasksSection');
         if (myTasksSec) myTasksSec.style.display = 'none';
@@ -741,7 +769,7 @@ function switchSubHODTab(tab) {
             if (el) el.style.display = 'none';
         });
         // Render right panel
-        if (tab === 'allhod' && IS_ADMIN) {
+        if (tab === 'allhod' && (IS_ADMIN || CAN_ASSIGN_HOD)) {
             loadAllHodMembers().then(function () {
                 renderAdminHodPanel();
             });
@@ -775,7 +803,7 @@ async function loadTasks(extra = {}) {
         if ((ROLE_TYPE_ID === 1 || ROLE_TYPE_ID === 2 || IS_ADMIN) && teamMembers.length === 0) {
             await loadTeamMembers(true);
         }
-        if (IS_ADMIN && subHODCurrentTab === 'allhod' && allHodMembers.length === 0) {
+        if ((IS_ADMIN || CAN_ASSIGN_HOD) && subHODCurrentTab === 'allhod' && allHodMembers.length === 0) {
             await loadAllHodMembers(true);
         }
 
@@ -783,7 +811,9 @@ async function loadTasks(extra = {}) {
             currentTaskFilterOverrides = Object.assign({}, currentTaskFilterOverrides, extra);
         }
 
-        const isAllHodView = IS_ADMIN && subHODCurrentTab === 'allhod';
+        const isAllHodView = (IS_ADMIN || CAN_ASSIGN_HOD) && subHODCurrentTab === 'allhod';
+        const isTeamView = (ROLE_TYPE_ID === 1 || ROLE_TYPE_ID === 2 || IS_ADMIN) && subHODCurrentTab === 'team';
+        const isMyView = subHODCurrentTab === 'my' || ROLE_TYPE_ID === 3;
         const pageLimit = currentViewMode === 'TEAM' || isAllHodView ? 1000 : 500;
         const filter = {
             page: currentPage, limit: pageLimit,
@@ -792,11 +822,14 @@ async function loadTasks(extra = {}) {
             taskType: document.getElementById('filterTaskType').value || null,
             employeeId: EMPLOYEE_ID, roleTypeId: ROLE_TYPE_ID,
             viewMode: isAllHodView ? 'ALL' : currentViewMode, sortBy: 'created_on', sortOrder: 'DESC',
-            ...((ROLE_TYPE_ID === 3 || ((ROLE_TYPE_ID === 1 || ROLE_TYPE_ID === 2) && subHODCurrentTab === 'my')) ? { assignedToEmployeeId: EMPLOYEE_ID } : {}),
+            // My Overview: tasks assigned TO me (by anyone including myself)
+            ...(isMyView ? { assignedToEmployeeId: EMPLOYEE_ID } : {}),
+            // Team Overview: tasks created BY me assigned to team (not to myself)
+            ...(isTeamView ? { createdByEmployeeId: EMPLOYEE_ID } : {}),
+            // All HOD Overview: HOD tasks created BY me
+            ...(isAllHodView ? { createdByEmployeeId: EMPLOYEE_ID } : {}),
             ...currentTaskFilterOverrides
         };
-        // HOD in TEAM view: respect user's filter selection (do not force ASSIGNED)
-        // This allows HOD to see all task types (SELF and ASSIGNED) from their team
         const res = await fetch(`${API}/GetAllTasks`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(filter)
@@ -823,6 +856,10 @@ async function loadTasks(extra = {}) {
                 renderHODTable(allHodTasks);
             } else if (ROLE_TYPE_ID === 1) {
                 if (subHODCurrentTab === 'team') {
+                    // Team Overview: only tasks assigned BY me to others (not myself)
+                    tasks = tasks.filter(function (t) {
+                        return String(getValue(t, 'assignedToEmployeeId', 'AssignedToEmployeeId')) !== String(EMPLOYEE_ID);
+                    });
                     allTeamTasks = filterTasksToKnownTeam(tasks, { excludeSelf: false });
                     applyScopedTeamData(allTeamTasks);
                     renderHODTable(allTeamTasks);
@@ -834,7 +871,10 @@ async function loadTasks(extra = {}) {
                 }
             } else if (ROLE_TYPE_ID === 2) {
                 if (subHODCurrentTab === 'team') {
-                    // Team tasks — build progress map from actual percent_complete
+                    // Team Overview: only tasks assigned BY me to others (not myself)
+                    tasks = tasks.filter(function (t) {
+                        return String(getValue(t, 'assignedToEmployeeId', 'AssignedToEmployeeId')) !== String(EMPLOYEE_ID);
+                    });
                     const scopedTeamTasks = applyScopedTeamData(tasks);
                     lastOwnTasks = [];
                     renderSubHODTaskList(scopedTeamTasks);
@@ -995,7 +1035,7 @@ function openCreateTaskModal() {
 
     var isHOD = (ROLE_TYPE_ID === 1);
     var isSubHOD = (ROLE_TYPE_ID === 2);
-    var isManager = (isHOD || isSubHOD || IS_ADMIN);
+    var isManager = (isHOD || isSubHOD || IS_ADMIN || CAN_ASSIGN_HOD);
     var taskTypeSel = document.getElementById('taskTypeSelector');
     var timeSlotSec = document.getElementById('timeSlotSection');
     var autoTimeSlotSec = document.getElementById('autoTimeSlotSection');
@@ -1006,15 +1046,19 @@ function openCreateTaskModal() {
     document.querySelectorAll('.td-timeslot-btn').forEach(function (b) { b.classList.remove('active'); });
     var autoSlot = getCurrentTimeSlot() || '10AM-1PM';
 
+    // Show/hide HOD Task button based on permission
+    var hodTaskBtn = document.getElementById('hodTaskBtn');
+    if (hodTaskBtn) hodTaskBtn.style.display = CAN_ASSIGN_HOD ? 'flex' : 'none';
+
     if (isHOD) {
-        // HOD: allow self task and assign task
+        // HOD: allow self task, team assign, and (if CAN_ASSIGN_HOD) HOD assign
         if (taskTypeSel) taskTypeSel.style.display = 'block';
         if (timeSlotSec) timeSlotSec.style.display = 'block';
         if (autoTimeSlotSec) autoTimeSlotSec.style.display = 'none';
         selectedTaskType = 'SELF';
         selectTaskType('SELF');
-    } else if (isSubHOD || IS_ADMIN) {
-        // Sub HOD / Director: show toggle and time slot for both self and assign
+    } else if (isSubHOD || IS_ADMIN || CAN_ASSIGN_HOD) {
+        // Sub HOD / Director / HOD-task permission: show toggle and time slot for both self and assign
         if (taskTypeSel) taskTypeSel.style.display = 'block';
         if (timeSlotSec) timeSlotSec.style.display = 'block';
         if (autoTimeSlotSec) autoTimeSlotSec.style.display = 'none';
@@ -1040,7 +1084,7 @@ function openCreateTaskModal() {
             if (selectedTaskType === 'ASSIGN') selectTaskType('ASSIGN');
         });
     }
-    if (IS_ADMIN && allHodMembers.length === 0) {
+    if ((IS_ADMIN || CAN_ASSIGN_HOD) && allHodMembers.length === 0) {
         loadAllHodMembers().then(function () {
             if (selectedTaskType === 'ASSIGN') selectTaskType('ASSIGN');
         });
@@ -1113,8 +1157,8 @@ async function submitCreateTask(e) {
     e.preventDefault();
     if (createTaskInFlight) return;
 
-    // Validate: if ASSIGN mode, must select an executive
-    if (selectedTaskType === 'ASSIGN') {
+    // Validate: if ASSIGN or HOD mode, must select a person
+    if (selectedTaskType === 'ASSIGN' || selectedTaskType === 'HOD') {
         var assignToVal = document.getElementById('ctAssignTo').value;
         if (!assignToVal) {
             showNotification('Please select a person to assign', 'error');
@@ -1135,7 +1179,7 @@ async function submitCreateTask(e) {
     showLoader();
 
     const rows = document.querySelectorAll('.td-task-row');
-    const assignTo = (selectedTaskType === 'ASSIGN') ? document.getElementById('ctAssignTo').value : '';
+    const assignTo = (selectedTaskType === 'ASSIGN' || selectedTaskType === 'HOD') ? document.getElementById('ctAssignTo').value : '';
     let successCount = 0;
     let errorCount = 0;
 
@@ -1373,7 +1417,7 @@ async function submitReassign() {
 // TEAM MEMBERS
 // ============================================
 async function loadTeamMembers(forceRefresh) {
-    if (ROLE_TYPE_ID !== 1 && ROLE_TYPE_ID !== 2 && !IS_ADMIN) return;
+    if (ROLE_TYPE_ID !== 1 && ROLE_TYPE_ID !== 2 && !IS_ADMIN && !CAN_ASSIGN_HOD) return;
     try {
         if (forceRefresh) teamMembers = [];
 
@@ -1389,7 +1433,7 @@ async function loadTeamMembers(forceRefresh) {
 }
 
 async function loadAllHodMembers(forceRefresh) {
-    if (!IS_ADMIN) return;
+    if (!IS_ADMIN && !CAN_ASSIGN_HOD) return;
     try {
         if (forceRefresh) allHodMembers = [];
 
@@ -1538,12 +1582,13 @@ function renderDeptCards() {
             const mt = getValue(s, 'totalTasks', 'TotalTasks');
             const mc = getValue(s, 'completedCount', 'CompletedCount');
             const mp = getEmployeeProgress(m.employeeId, mt, mc);
-            const avatarBg = m.role === 'Sub HOD' ? '#4f46e5' : '#0891b2';
+            const avatarBg = m.role === 'Sub HOD' ? '#ede9fe' : '#e0f2fe';
+            const avatarColor = m.role === 'Sub HOD' ? '#4f46e5' : '#0284c7';
             const roleColor = m.role === 'Sub HOD' ? 'background:#ede9fe;color:#4f46e5' : 'background:#e0f2fe;color:#0284c7';
-            const initials = m.employeeName.split(' ').map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
+            const initials = m.employeeName.split(' ').filter(function(n){return n.length>0;}).map(function (n) { return n[0]; }).join('').substring(0, 2).toUpperCase() || m.employeeName.substring(0,1).toUpperCase();
             return `<div class="td-emp-row" onclick="event.stopPropagation();openEmpTasksModal(${m.employeeId},'${m.employeeName.replace(/'/g, "\\'")}')">
-                        <div class="td-emp-avatar" style="background:${avatarBg}">${initials}</div>
-                        <div class="td-emp-name">${esc(m.employeeName)}</div>
+                        <div class="td-emp-avatar" style="background-color:${avatarBg};width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:${avatarColor};font-weight:700;flex-shrink:0;">${initials}</div>
+                        <div class="td-emp-name" style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#1e293b;overflow-wrap:break-word;word-break:break-word;">${esc(m.employeeName)}</div>
                         <span class="td-emp-role-tag" style="${roleColor}">${m.role}</span>
                         <div class="td-emp-prog-wrap">
                             <div class="td-emp-prog-bar"><div class="td-emp-prog-fill" style="width:${mp}%"></div></div>
@@ -1637,6 +1682,66 @@ function closeEmpTasksModal() {
     document.getElementById('empTasksModal').style.display = 'none';
 }
 
+async function openHodEmpTasksModal(empId, empName) {
+    document.getElementById('empTasksName').textContent = empName;
+    document.getElementById('empTasksSubtitle').textContent = 'Loading tasks...';
+    document.getElementById('empTasksBody').innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+    document.getElementById('empTasksModal').style.display = 'flex';
+
+    try {
+        let tasks = allHodTasks.filter(function (task) {
+            return String(getValue(task, 'assignedToEmployeeId', 'AssignedToEmployeeId')) === String(empId);
+        });
+
+        if (!tasks.length) {
+            const res = await fetch(`${API}/GetAllTasks`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ page: 1, limit: 1000, employeeId: EMPLOYEE_ID, roleTypeId: ROLE_TYPE_ID, viewMode: 'ALL', assignedToEmployeeId: empId })
+            });
+            const r = await res.json();
+            tasks = (r.data || r.Data || []).filter(function (task) {
+                return String(getValue(task, 'assignedToEmployeeId', 'AssignedToEmployeeId')) === String(empId);
+            });
+        }
+
+        document.getElementById('empTasksSubtitle').textContent = tasks.length + ' task' + (tasks.length !== 1 ? 's' : '');
+
+        if (!tasks.length) {
+            document.getElementById('empTasksBody').innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox fa-2x"></i><p style="margin-top:12px">No tasks assigned</p></div>';
+            return;
+        }
+
+        const html = tasks.map(function (t) {
+            const isCompleted = !!getValue(t, 'isCompleted', 'IsCompleted');
+            const status = getTextValue(t, 'status', 'Status') || 'PENDING';
+            const expectedEndDate = getTextValue(t, 'expectedEndDate', 'ExpectedEndDate');
+            const overdue = !isCompleted && new Date(expectedEndDate) < new Date();
+            const sc = isCompleted ? 'completed' : (overdue ? 'overdue' : status.toLowerCase().replace('_', '-'));
+            const statusColors = { 'completed': '#10b981', 'overdue': '#ef4444', 'pending': '#f59e0b', 'in-progress': '#3b82f6', 'not-started': '#94a3b8' };
+            const sColor = statusColors[sc] || '#94a3b8';
+            const pct = getValue(t, 'percentComplete', 'PercentComplete') || 0;
+            return `<div class="emp-task-item">
+                <div class="emp-task-top">
+                    <span style="background:${sColor}20;color:${sColor};padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700">${isCompleted ? 'Completed' : (overdue ? 'Overdue' : fmtStatus(status))}</span>
+                    <span style="background:#f1f5f9;color:#475569;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600">${getTextValue(t, 'priority', 'Priority') || 'MEDIUM'}</span>
+                </div>
+                <div class="emp-task-name">${esc(getTextValue(t, 'taskName', 'TaskName'))}</div>
+                <div class="emp-task-meta">
+                    <span><i class="fas fa-calendar-plus"></i> ${fmtDate(getTextValue(t, 'startDate', 'StartDate'))}</span>
+                    <span class="${overdue ? 'td-text-danger' : ''}"><i class="fas fa-calendar-check"></i> ${fmtDate(expectedEndDate)}</span>
+                </div>
+                <div class="emp-task-prog">
+                    <div class="emp-task-prog-bar"><div class="emp-task-prog-fill" style="width:${pct}%"></div></div>
+                    <span style="font-size:12px;font-weight:700;color:#4f46e5;min-width:36px">${pct}%</span>
+                </div>
+            </div>`;
+        }).join('');
+        document.getElementById('empTasksBody').innerHTML = html;
+    } catch (e) {
+        document.getElementById('empTasksBody').innerHTML = '<div style="color:#ef4444;padding:16px">Error loading tasks</div>';
+    }
+}
+
 // ============================================
 // HOD TASK TABLE
 // ============================================
@@ -1650,7 +1755,7 @@ function renderAdminHodPanel() {
     section.style.display = 'block';
 
     if (!allHodMembers.length) {
-        section.innerHTML = '<div class="td-section-header"><h2><i class="fas fa-user-tie"></i> All HODs</h2></div><div class="td-empty"><i class="fas fa-users"></i><h3>No HOD Found</h3><p>No HODs are available for this admin view.</p></div>';
+        section.innerHTML = '<div class="td-section-header"><h2><i class="fas fa-user-tie" style="color:#000"></i> All HODs</h2></div><div class="td-empty"><i class="fas fa-users"></i><h3>No HOD Found</h3><p>No HODs are available for this admin view.</p></div>';
         return;
     }
 
@@ -1662,11 +1767,13 @@ function renderAdminHodPanel() {
             return String(getValue(task, 'assignedToEmployeeId', 'AssignedToEmployeeId')) === String(employeeId);
         });
         const summary = summarizeTasks(memberTasks);
+        const safeName = (employeeName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+        const hodInitials = (employeeName || 'H').trim().split(' ').filter(function(n){return n.length>0;}).map(function(n){return n[0];}).join('').substring(0,2).toUpperCase() || 'H';
         return `
-            <div class="subhod-emp-card" onclick="filterByMember(${employeeId})">
+            <div class="subhod-emp-card" style="cursor:pointer" onclick="openHodEmpTasksModal(${employeeId},'${safeName}')">
                 <div class="subhod-emp-card-header">
-                    <div class="subhod-emp-avatar">${esc((employeeName || 'H').trim().slice(0, 1).toUpperCase())}</div>
+                    <div class="subhod-emp-avatar" style="width:40px;height:40px;min-width:40px;border-radius:50%;background-color:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:14px;color:#4f46e5;font-weight:700;flex-shrink:0;">${hodInitials}</div>
                     <div class="subhod-emp-info">
                         <div class="subhod-emp-name">${esc(employeeName)}</div>
                         <div class="subhod-emp-role">${esc(designation)}</div>
@@ -1680,7 +1787,7 @@ function renderAdminHodPanel() {
             </div>`;
     }).join('');
 
-    section.innerHTML = '<div class="td-section-header"><h2><i class="fas fa-user-tie"></i> All HODs</h2></div><div class="subhod-team-cards">' + cards + '</div>';
+    section.innerHTML = '<div class="td-section-header"><h2><i class="fas fa-user-tie" style="color:#000"></i> All HODs</h2></div><div class="subhod-team-cards">' + cards + '</div>';
 }
 
 function renderHODTable(tasks) {

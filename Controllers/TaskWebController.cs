@@ -123,6 +123,47 @@ namespace JSAPNEW.Controllers
             return false;
         }
 
+        private async Task<bool> HasHodTaskPermissionAsync(int userId)
+        {
+            try
+            {
+                var selectedCompanyId = HttpContext.Session.GetInt32("selectedCompanyId");
+                if (!selectedCompanyId.HasValue || selectedCompanyId.Value <= 0)
+                    return false;
+
+                var connectionString = _configuration.GetConnectionString("DefaultConnection");
+                await using var connection = new SqlConnection(connectionString);
+                await using var command = new SqlCommand("jsGetUserEffectivePermissions", connection)
+                {
+                    CommandType = System.Data.CommandType.StoredProcedure
+                };
+
+                command.Parameters.AddWithValue("@userId", userId);
+                command.Parameters.AddWithValue("@companyId", selectedCompanyId.Value);
+
+                await connection.OpenAsync();
+                await using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    var moduleName = reader["moduleName"]?.ToString() ?? "";
+                    var permissionType = reader["permissionType"]?.ToString() ?? "";
+
+                    if (moduleName.Equals("Daily Task", StringComparison.OrdinalIgnoreCase)
+                        && permissionType.Equals("HOD_task", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking HOD task permission: {ex.Message}");
+            }
+
+            return false;
+        }
+
         #endregion
 
         #region Views
@@ -139,6 +180,7 @@ namespace JSAPNEW.Controllers
             var userInfo = await GetUserInfoFromDatabaseAsync(userId);
             var empCode = userInfo.EmpId;
             var isAdmin = await HasTaskAdminPermissionAsync(userId);
+            var canAssignHod = isAdmin || await HasHodTaskPermissionAsync(userId);
 
             // Defaults
             int employeeId = 0;
@@ -176,6 +218,7 @@ namespace JSAPNEW.Controllers
             ViewBag.EmployeeName = employeeName;
             ViewBag.EmployeeCode = employeeCode;
             ViewBag.IsAdmin = isAdmin;
+            ViewBag.CanAssignHod = canAssignHod;
             ViewBag.AdminLabel = isAdmin ? "Task Admin" : string.Empty;
             ViewBag.CompanyId = HttpContext.Session.GetInt32("selectedCompanyId");
 
@@ -236,11 +279,12 @@ namespace JSAPNEW.Controllers
             var userInfo = await GetUserInfoFromDatabaseAsync(userId);
             var empCode = userInfo.EmpId;
             var isAdmin = await HasTaskAdminPermissionAsync(userId);
+            var isHodTask = isAdmin || await HasHodTaskPermissionAsync(userId);
 
             var members = new List<object>();
             var wantsAllHods = string.Equals(scope, "allhods", StringComparison.OrdinalIgnoreCase);
 
-            if (isAdmin && wantsAllHods)
+            if (isHodTask && wantsAllHods)
             {
                 try
                 {

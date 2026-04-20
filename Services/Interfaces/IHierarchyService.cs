@@ -164,5 +164,23 @@ namespace JSAPNEW.Services
         Task<HierarchyApiResponse<bool>> SetEmployeeCustomValueAsync(SetCustomValueRequest request);
 
         #endregion
+
+        #region Sales Hierarchy
+
+        Task<List<SalesHierarchyRowDto>> GetSalesHierarchyFlatAsync(string? h1, string? h2, string? h3, string? h4, string? search, bool activeOnly, int companyId);
+        Task<SalesHierarchyStatsDto> GetSalesHierarchyStatsAsync(int companyId);
+        Task<SalesImportResult> ImportSalesHierarchyAsync(List<SalesImportRowRequest> rows, int createdBy, int companyId);
+        Task<int> UpdateMissingSalesHierarchyCodesAsync(int companyId);
+        Task<HierarchyApiResponse<bool>> UpdateSalesRowAsync(SalesUpdateRowRequest request, int updatedBy);
+        Task<HierarchyApiResponse<bool>> ShiftSalesEmployeeAsync(SalesShiftRequest request, int updatedBy);
+        Task<List<AuditLogDto>> GetSalesAuditLogsAsync(AuditLogRequest request);
+        Task<List<SalesStateDto>> GetSalesStatesAsync();
+        Task<List<SalesGroupDto>> GetSalesGroupsAsync();
+        Task<List<SalesDesignationDto>> GetSalesDesignationsAsync();
+        Task<HierarchyApiResponse<bool>> CreateSalesEmployeeAsync(CreateSalesEmployeeRequest request, int createdBy, int companyId);
+        Task<object> GetSalesHierarchyForTreeAsync(int companyId);
+        Task<List<EmployeeDropdownDto>> GetSalesEmployeeListAsync();
+
+        #endregion
     }
 }

@@ -244,9 +244,9 @@
 }
 
     .td-toggle-btn.active {
-        background: #fff;
-        color: #0b2c4d;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        background: linear-gradient(135deg, #1e2d4e, #2d4a7a);
+        color: #fff !important;
+        box-shadow: 0 3px 10px rgba(30,45,78,.35);
     }
 
     .td-toggle-btn:hover:not(.active) {
@@ -1039,7 +1039,7 @@
 
 .td-type-toggle {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 12px;
 }
 

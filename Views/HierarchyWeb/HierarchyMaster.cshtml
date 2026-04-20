@@ -4,13 +4,15 @@
     string empCode = ViewBag.EmpCode?.ToString() ?? "";
 }
 
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
     :root {
         --page-font-size: 13px;
         --page-font-family: 'Sora',sans-serif;
+        --page-font-weight: 400;
+        --page-line-height: 1.5;
         --g1: #0b2c4d;
         --g2: #1a4a7a;
         --g3: #2563eb;
@@ -36,60 +38,102 @@
         background: var(--bg);
         color: var(--text);
         font-family: var(--page-font-family);
-        font-size: var(--page-font-size)
+        font-size: var(--page-font-size);
+        font-weight: var(--page-font-weight);
+        line-height: var(--page-line-height)
     }
 
     .topbar {
         position: sticky;
         top: 0;
         z-index: 50;
-        background: var(--bg2);
+        background: var(--bg);
         border-bottom: 1px solid var(--border);
-        padding: 10px 20px;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 2px 8px rgba(0,0,0,.06)
+    }
+
+    .topbar-main {
         display: flex;
         align-items: center;
-        gap: 10px;
-        flex-wrap: wrap
+        gap: 12px;
+        padding: 9px 20px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
     }
 
     .topbar-title {
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 700;
-        background: linear-gradient(90deg,var(--g2),var(--g3));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        white-space: nowrap
-    }
-
-    .stat-pills {
+        color: var(--g1);
+        white-space: nowrap;
         display: flex;
+        align-items: center;
         gap: 8px;
-        flex-wrap: wrap
+        letter-spacing: .3px
     }
 
-    .stat-pill {
-        background: var(--bg3);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 3px 12px;
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--muted);
-        white-space: nowrap
+    .topbar-title-icon {
+        width: 30px; height: 30px;
+        background: linear-gradient(135deg, var(--g1), var(--g2));
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 15px;
+        color: #fff;
     }
-
-        .stat-pill b {
-            color: var(--g2);
-            font-size: 13px;
-            margin-right: 3px
-        }
 
     .topbar-actions {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         margin-left: auto;
         flex-wrap: wrap;
         align-items: center
+    }
+
+    .btn-sep {
+        width: 1px;
+        height: 22px;
+        background: var(--border);
+        margin: 0 2px;
+        flex-shrink: 0;
+    }
+
+    .stat-bar {
+        display: flex;
+        gap: 0;
+        background: var(--bg2);
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .stat-bar::-webkit-scrollbar { display: none }
+
+    .stat-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 18px;
+        border-right: 1px solid var(--border);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .stat-pill-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .stat-pill b {
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 700;
     }
 
     .btn {
@@ -107,9 +151,11 @@
         white-space: nowrap
     }
 
+    /* ── Global button defaults (used in modals) ── */
     .btn-primary {
         background: var(--g1);
-        color: #fff
+        color: #fff;
+        border: none;
     }
 
         .btn-primary:hover {
@@ -119,6 +165,8 @@
 
     .btn-add-employee {
         background: #0ea5e9;
+        color: #fff;
+        border: none;
     }
 
         .btn-add-employee:hover {
@@ -143,7 +191,50 @@
     }
 
         .btn-excel:hover {
-            background: rgba(21,128,61,.35)
+            background: rgba(21,128,61,.35);
+        }
+
+    /* ── Topbar-only overrides (light background) ── */
+    .topbar-main .btn-primary {
+        background: var(--g1);
+        color: #fff;
+    }
+
+        .topbar-main .btn-primary:hover {
+            background: var(--g2);
+            transform: translateY(-1px);
+        }
+
+    .topbar-main .btn-add-employee {
+        background: #16a34a;
+        color: #fff;
+    }
+
+        .topbar-main .btn-add-employee:hover {
+            background: #15803d;
+        }
+
+    .topbar-main .btn-ghost {
+        background: var(--bg3);
+        color: var(--muted);
+        border: 1px solid var(--border)
+    }
+
+        .topbar-main .btn-ghost:hover {
+            background: var(--bg2);
+            color: var(--text);
+            border-color: var(--g2)
+        }
+
+    .topbar-main .btn-excel {
+        background: rgba(21,128,61,.12);
+        color: #15803d;
+        border: 1px solid rgba(21,128,61,.25)
+    }
+
+        .topbar-main .btn-excel:hover {
+            background: rgba(21,128,61,.2);
+            color: #14532d;
         }
 
     .filterbar {
@@ -557,28 +648,35 @@
         display: none;
         align-items: center;
         justify-content: center;
+        padding: 20px;
         backdrop-filter: blur(3px)
     }
 
         .hm-modal-overlay.open {
-            display: flex
+            display: flex;
+            animation: hmOverlayIn .2s ease forwards
         }
+
+    @@keyframes hmOverlayIn { from { background: rgba(11,44,77,0); } to { background: rgba(11,44,77,.4); } }
+    @@keyframes hmModalIn { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
     .hm-modal-box {
         background: #fff !important;
         border: 1px solid var(--border) !important;
-        border-radius: 14px !important;
+        border-radius: 18px !important;
         padding: 26px !important;
         width: 540px;
-        max-width: 96vw;
-        max-height: 92vh;
+        max-width: min(96vw, 720px);
+        max-height: calc(100vh - 40px);
         overflow-y: auto;
-        box-shadow: 0 8px 40px rgba(11,44,77,.15) !important;
+        box-shadow: 0 8px 40px rgba(11,44,77,.22) !important;
         position: relative;
         z-index: 100000 !important;
         display: block !important;
         visibility: visible !important;
-        opacity: 1 !important
+        opacity: 1 !important;
+        margin: 0 auto;
+        animation: hmModalIn .22s cubic-bezier(.22,.61,.36,1)
     }
 
     .hm-modal-title {
@@ -791,61 +889,58 @@
 
 <!-- TOP BAR -->
 <div class="topbar">
-    <span class="topbar-title">⊞ Hierarchy Master</span>
-    <div class="stat-pills">
-        <div class="stat-pill"><b id="sTotal">—</b>Employees</div>
-        <div class="stat-pill"><b id="sActive">—</b>Active</div>
-        <div class="stat-pill"><b id="sInactive">—</b>Inactive</div>
-        <div class="stat-pill"><b id="sHod">—</b>HODs</div>
-        <div class="stat-pill"><b id="sSub">—</b>SubHODs</div>
-        <div class="stat-pill"><b id="sExec">—</b>Execs</div>
+    <div class="topbar-main">
+        <div class="topbar-title">
+            <div class="topbar-title-icon">⊞</div>
+            Hierarchy Master
+        </div>
+        <div class="topbar-actions">
+            @if (isAdmin)
+            {
+                <button class="btn btn-excel" onclick="toggleUpload()" id="uploadBtn" title="Import from Excel">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
+                    Import Excel
+                </button>
+                <button class="btn btn-add-employee" onclick="openAdd()" title="Add new employee">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                    Add Employee
+                </button>
+                <div class="btn-sep"></div>
+                <button class="btn btn-ghost" onclick="openBulkAssign()" title="Bulk assign team members">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="8.5" cy="7" r="4" /><path d="M20 8v6M23 11h-6" /></svg>
+                    Bulk Assign
+                </button>
+                <button class="btn btn-ghost" onclick="openDeptManager()" title="Manage departments">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                    Departments
+                </button>
+                <button class="btn btn-ghost" onclick="openColumnManager()" title="Manage visible columns">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
+                    Columns
+                </button>
+                <button class="btn btn-ghost" onclick="openLogs()" title="View audit logs">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+                    Logs
+                </button>
+                <div class="btn-sep"></div>
+            }
+            <button class="btn btn-ghost" onclick="openVisModal()" title="Toggle column visibility">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                View
+            </button>
+            <button class="btn btn-ghost" onclick="loadGrid()" title="Reload data">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 100-.49" /></svg>
+                Refresh
+            </button>
+        </div>
     </div>
-    <div class="topbar-actions">
-        @if (isAdmin)
-        {
-            <button class="btn btn-excel" onclick="toggleUpload()" id="uploadBtn">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
-                Import Excel
-            </button>
-            <button class="btn btn-primary btn-add-employee" onclick="openAdd()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                Add Employee
-            </button>
-            <button class="btn btn-ghost" onclick="openBulkAssign()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="8.5" cy="7" r="4" /><path d="M20 8v6M23 11h-6" /></svg>
-                Bulk Assign
-            </button>
-        }
-        @if (isAdmin)
-        {
-            <button class="btn btn-ghost" onclick="openDeptManager()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                Departments
-            </button>
-            <button class="btn btn-ghost" onclick="openColumnManager()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
-                Columns
-            </button>
-        }
-        @* <button class="btn btn-ghost" onclick="openPageSettings()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
-            Page Settings
-        </button> *@
-        @if (isAdmin)
-        {
-            <button class="btn btn-ghost" onclick="openLogs()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
-                Logs
-            </button>
-        }
-        <button class="btn btn-ghost" onclick="openVisModal()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-            View
-        </button>
-        <button class="btn btn-ghost" onclick="loadGrid()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 100-.49" /></svg>
-            Refresh
-        </button>
+    <div class="stat-bar">
+        <div class="stat-pill"><span class="stat-pill-dot" style="background:#6366f1"></span><b id="sTotal">—</b> Employees</div>
+        <div class="stat-pill"><span class="stat-pill-dot" style="background:#22c55e"></span><b id="sActive">—</b> Active</div>
+        <div class="stat-pill"><span class="stat-pill-dot" style="background:#f87171"></span><b id="sInactive">—</b> Inactive</div>
+        <div class="stat-pill"><span class="stat-pill-dot" style="background:#3b82f6"></span><b id="sHod">—</b> HODs</div>
+        <div class="stat-pill"><span class="stat-pill-dot" style="background:#a855f7"></span><b id="sSub">—</b> SubHODs</div>
+        <div class="stat-pill"><span class="stat-pill-dot" style="background:#f59e0b"></span><b id="sExec">—</b> Execs</div>
     </div>
 </div>
 
@@ -1297,52 +1392,17 @@
     let allRows=[], deptsMeta=[], hodsMeta=[], bulkExecsMeta=[], bulkSelectedExecIds=new Set(), bulkMode='assign', addLvl=1, pendingXl=[], editCurrentDateOfJoining=null;
 
     document.addEventListener('DOMContentLoaded', async()=>{
-        ['addModal','editModal','deptMoveModal','deptModal','bulkModal'].forEach(id=>{
-            const modal=document.getElementById(id);
-            if(modal) document.body.appendChild(modal);
-        });
+        // Move all overlays to <body> so layout's overflow-x:hidden doesn't trap fixed positioning
+        document.querySelectorAll('.hm-modal-overlay').forEach(el => document.body.appendChild(el));
         await Promise.all([loadGrid(), loadDeptsMeta(), loadHodsMeta()]);
     });
 
     async function loadGrid(){
         setLoad(true);
         try{
-            const [r, orphanRes] = await Promise.all([
-                api(`${API}/GetMasterFlatAdmin`),
-                IS_ADMIN ? api(`${API}/GetOrphanEmployees`) : Promise.resolve({success:false})
-            ]);
+            const r = await api(`${API}/GetMasterFlatAdmin`);
             if(!r.success){toast(r.message||'Load failed','err');return;}
             allRows=r.data||[];
-            // Add unassigned employees as rows in the grid so they appear in the table
-            if(orphanRes.success && orphanRes.data && orphanRes.data.length){
-                const maxIdx = allRows.length;
-                orphanRes.data.forEach((o, i) => {
-                    const role = o.roleTypeId;
-                    allRows.push({
-                        rowIndex: maxIdx + i + 1,
-                        hodEmployeeId: role === 1 ? o.employeeId : 0,
-                        hodCode: role === 1 ? (o.employeeCode||'') : '',
-                        hodName: role === 1 ? (o.employeeName||'') : '',
-                        hodDesignation: role === 1 ? (o.designation||'') : '',
-                        hodIsActive: true,
-                        departmentId: o.departmentId || null,
-                        departmentName: o.departmentName || '',
-                        subDepartmentId: o.subDepartmentId || null,
-                        subDepartmentName: o.subDepartmentName || '',
-                        subHodEmployeeId: role === 2 ? o.employeeId : 0,
-                        subHodCode: role === 2 ? (o.employeeCode||'') : '',
-                        subHodName: role === 2 ? (o.employeeName||'') : '',
-                        subHodDesignation: role === 2 ? (o.designation||'') : '',
-                        subHodIsActive: role === 2,
-                        execEmployeeId: role === 3 ? o.employeeId : 0,
-                        execCode: role === 3 ? (o.employeeCode||'') : '',
-                        execName: role === 3 ? (o.employeeName||'') : '',
-                        execDesignation: role === 3 ? (o.designation||'') : '',
-                        execIsActive: role === 3,
-                        _isOrphan: true
-                    });
-                });
-            }
             updateStats(); populateDeptFilter(); applyFilters();
         }catch(e){toast('Network error','err');}
         finally{setLoad(false);}
@@ -1422,8 +1482,9 @@
         let prevH=null;
         rows.forEach((row,ri)=>{
             const nH=row.hodEmployeeId!==prevH; prevH=row.hodEmployeeId;
-            const leafOk=row.execEmployeeId>0?row.execIsActive:row.subHodEmployeeId>0?row.subHodIsActive:row.hodIsActive;
-            const hasS=row.subHodEmployeeId>0, hasE=row.execEmployeeId>0;
+            const hasS=(row.subHodEmployeeId>0)||!!(row.subHodName||row.subHodCode||row.subHodDesignation);
+            const hasE=(row.execEmployeeId>0)||!!(row.execName||row.execCode||row.execDesignation);
+            const leafOk=hasE?row.execIsActive:hasS?row.subHodIsActive:row.hodIsActive;
             const hodEditBtn  = adm?`<button class="btn-icon btn-edit-hod"  onclick="openEdit(${row.hodEmployeeId})"    title="Edit HOD">H</button>` :'';
             const subEditBtn  = adm&&hasS?`<button class="btn-icon btn-edit-sub"  onclick="openEdit(${row.subHodEmployeeId})" title="Edit SubHOD">S</button>`:'';
             const execEditBtn = adm&&hasE?`<button class="btn-icon btn-edit-exec" onclick="openEdit(${row.execEmployeeId})"   title="Edit Exec">E</button>`:'';
@@ -1446,10 +1507,15 @@
     }
 
     function eCell(n,c){
-        if(!n)return`<span class="cell-empty">—</span>`;
-        const isTemp = c && String(c).toUpperCase().startsWith('TEMP');
+        const hasName=!!(n&&String(n).trim());
+        const hasCode=!!(c&&String(c).trim());
+        if(!hasName && !hasCode)return`<span class="cell-empty">—</span>`;
+        const isTemp = hasCode && String(c).toUpperCase().startsWith('TEMP');
         const codeClass = isTemp ? 'emp-code temp-code' : 'emp-code';
-        return`<div class="emp-cell"><span class="emp-name">${esc(n)}</span>${c?`<span class="${codeClass}">${esc(c)}</span>`:''}</div>`;
+        if(!hasName && hasCode){
+            return`<div class="emp-cell"><span class="${codeClass}">${esc(c)}</span></div>`;
+        }
+        return`<div class="emp-cell"><span class="emp-name">${esc(n)}</span>${hasCode?`<span class="${codeClass}">${esc(c)}</span>`:''}</div>`;
     }
     function startEdit(td){
         if(td.classList.contains('editing'))return;
@@ -1806,14 +1872,20 @@
         }
         hodsMeta=list;
         renderHodOptions('f_hod', hodsMeta);
-        renderHodOptions('e_hod', hodsMeta);
+        renderHodOptions('e_hod', hodsMeta, editEmpId);
         renderHodOptions('b_hod', hodsMeta);
         }catch(e){}
     }
-    function renderHodOptions(selId, hods){
+    function getDropdownEmployeeId(e){
+        return Number(e?.employeeId ?? e?.EmployeeId ?? 0) || 0;
+    }
+    function renderHodOptions(selId, hods, excludeEmployeeId){
         const s=document.getElementById(selId);
         if(!s)return;
-        s.innerHTML='<option value="">— Select HOD —</option>'+(hods||[]).map(e=>`<option value="${e.employeeId||e.EmployeeId}">${esc(e.employeeName||e.EmployeeName)} (${esc(e.employeeCode||e.EmployeeCode||'')})</option>`).join('');
+        const excludedId = Number(excludeEmployeeId) || 0;
+        s.innerHTML='<option value="">— Select HOD —</option>'+(hods||[])
+            .filter(e=>!excludedId || getDropdownEmployeeId(e)!==excludedId)
+            .map(e=>`<option value="${getDropdownEmployeeId(e)}">${esc(e.employeeName||e.EmployeeName)} (${esc(e.employeeCode||e.EmployeeCode||'')})</option>`).join('');
     }
     function getSubHodsForDepartment(hodId, deptId, subDeptId){
         const hodKey = Number(hodId) || 0;
@@ -2110,18 +2182,37 @@
         const hodRow = document.getElementById('e_hod_row');
         const subRow = document.getElementById('e_sub_row');
         const subDeptWrap = document.getElementById('e_sdept_wrap');
+        const hodSel = document.getElementById('e_hod');
+        const subSel = document.getElementById('e_sub');
         hodRow.style.display = role >= 2 ? '' : 'none';
         subRow.style.display = role === 3 ? '' : 'none';
         subDeptWrap.style.display = role >= 2 ? '' : 'none';
         updateEditFormLabels();
-        if (role < 2) document.getElementById('e_sdept').value = '';
+        if (role < 2) {
+            const deptSel = document.getElementById('e_dept');
+            const currentDeptValue = deptSel?.value || '';
+            if (hodSel) hodSel.value = '';
+            if (subSel) subSel.innerHTML = '<option value="">— Direct to HOD —</option>';
+            document.getElementById('e_sdept').value = '';
+            renderDeptOptions('e_dept', deptsMeta);
+            if (currentDeptValue) {
+                ensureSelectOption('e_dept', currentDeptValue, editContextRow?.departmentName || 'Current Department');
+                document.getElementById('e_dept').value = currentDeptValue;
+            }
+            return;
+        }
 
         if (role >= 2) {
             await loadHodsMeta();
-            const hodSel = document.getElementById('e_hod');
+            renderHodOptions('e_hod', hodsMeta, editEmpId);
             if (presetHodId) {
                 hodSel.value = String(presetHodId);
                 await onEditHodChange(presetSubId, parseInt(document.getElementById('e_dept').value) || null, true, presetSubDeptId);
+            } else {
+                if (hodSel) hodSel.value = '';
+                renderDeptOptions('e_dept', []);
+                document.getElementById('e_sdept').innerHTML = '<option value="">— Select —</option>';
+                if (subSel) subSel.innerHTML = '<option value="">— Direct to HOD —</option>';
             }
         }
     }
@@ -3135,9 +3226,6 @@
             <span>Page Settings</span>
             <button class="btn btn-ghost" onclick="closePageSettings()" style="padding:4px 10px;font-size:11px">✕ Close</button>
         </div>
-        <p style="font-size:11px;color:var(--muted);margin-bottom:12px">
-            Change text size and page colors for this screen. Your choices are saved in this browser.
-        </p>
         <div class="page-settings-grid">
             <div class="ps-row">
                 <label class="ps-label" for="psFontSize">Text Size</label>
@@ -3145,14 +3233,45 @@
                 <span class="ps-value" id="psFontSizeVal">13px</span>
             </div>
             <div class="ps-row">
-                <label class="ps-label" for="psFontFamily">Text Style</label>
+                <label class="ps-label" for="psFontFamily">Text Font</label>
                 <select class="fs" id="psFontFamily" onchange="previewPageSettings()">
-                    <option value="'Sora',sans-serif">Sora</option>
-                    <option value="Georgia,serif">Georgia</option>
+                    <option value="'Sora',sans-serif">Sora (Default)</option>
+                    <option value="'Inter',sans-serif">Inter</option>
+                    <option value="'DM Sans',sans-serif">DM Sans</option>
+                    <option value="Georgia,serif">Georgia (Serif)</option>
                     <option value="'Trebuchet MS',sans-serif">Trebuchet</option>
-                    <option value="'JetBrains Mono',monospace">Mono</option>
+                    <option value="'JetBrains Mono',monospace">JetBrains Mono</option>
+                    <option value="'Courier New',monospace">Courier New</option>
                 </select>
                 <span class="ps-value" id="psFontFamilyVal">Sora</span>
+            </div>
+            <div class="ps-row">
+                <label class="ps-label" for="psFontWeight">Text Style</label>
+                <select class="fs" id="psFontWeight" onchange="previewPageSettings()">
+                    <option value="400">Normal</option>
+                    <option value="500">Medium</option>
+                    <option value="600">Semi-Bold</option>
+                    <option value="700">Bold</option>
+                </select>
+                <span class="ps-value" id="psFontWeightVal">Normal</span>
+            </div>
+            <div class="ps-row">
+                <label class="ps-label" for="psLineHeight">Line Spacing</label>
+                <select class="fs" id="psLineHeight" onchange="previewPageSettings()">
+                    <option value="1.3">Compact</option>
+                    <option value="1.5" selected>Normal</option>
+                    <option value="1.8">Relaxed</option>
+                </select>
+                <span class="ps-value" id="psLineHeightVal">Normal</span>
+            </div>
+            <div class="ps-row">
+                <label class="ps-label" for="psRowDensity">Row Density</label>
+                <select class="fs" id="psRowDensity" onchange="previewPageSettings()">
+                    <option value="compact">Compact (36px)</option>
+                    <option value="comfortable" selected>Comfortable (44px)</option>
+                    <option value="spacious">Spacious (54px)</option>
+                </select>
+                <span class="ps-value" id="psRowDensityVal">Comfortable</span>
             </div>
             <div class="ps-row">
                 <label class="ps-label" for="psTextColor">Text Color</label>
@@ -3172,7 +3291,7 @@
         </div>
         <div class="ps-preview" style="margin-top:14px">
             <div class="ps-preview-title">Live Preview</div>
-            <div class="ps-preview-note">Headings, labels, table text, and the general page theme will use these values after apply.</div>
+            <div class="ps-preview-note">Changes will apply to this page's content. Each page stores its own settings in the browser.</div>
         </div>
         <div style="display:flex;gap:8px;justify-content:space-between;margin-top:14px">
             <button class="btn btn-ghost" onclick="resetPageSettings()">Reset Default</button>
@@ -3334,16 +3453,16 @@
 
 <script>
     const PAGE_SETTINGS_KEY = 'hmPageSettings_v1';
-    const PAGE_FONT_BASE_SIZE = 13;
     const DEFAULT_PAGE_SETTINGS = {
-        fontSize: PAGE_FONT_BASE_SIZE,
+        fontSize: 13,
         fontFamily: "'Sora',sans-serif",
+        fontWeight: '400',
+        lineHeight: '1.5',
+        rowDensity: 'comfortable',
         textColor: '#0f172a',
         accentColor: '#0b2c4d',
         backgroundColor: '#ffffff'
     };
-    let pageSettingsObserver = null;
-
     // Register modals for body append
     (function(){
         ['logModal','colModal','visModal','pageSettingsModal'].forEach(function(id){
@@ -3364,22 +3483,69 @@
 
     function applyPageSettingsToDocument(settings) {
         const root = document.documentElement;
-        const fontSize = parseInt(settings.fontSize, 10) || DEFAULT_PAGE_SETTINGS.fontSize;
-        const textColor = settings.textColor || DEFAULT_PAGE_SETTINGS.textColor;
-        const accentColor = settings.accentColor || DEFAULT_PAGE_SETTINGS.accentColor;
-        const backgroundColor = settings.backgroundColor || DEFAULT_PAGE_SETTINGS.backgroundColor;
+        const fontSize  = parseInt(settings.fontSize, 10) || DEFAULT_PAGE_SETTINGS.fontSize;
+        const textColor = settings.textColor       || DEFAULT_PAGE_SETTINGS.textColor;
+        const accent    = settings.accentColor     || DEFAULT_PAGE_SETTINGS.accentColor;
+        const bgColor   = settings.backgroundColor || DEFAULT_PAGE_SETTINGS.backgroundColor;
+        const rowDensity= settings.rowDensity      || DEFAULT_PAGE_SETTINGS.rowDensity;
+        const fontWeight= settings.fontWeight      || DEFAULT_PAGE_SETTINGS.fontWeight;
+        const lineHeight= settings.lineHeight      || DEFAULT_PAGE_SETTINGS.lineHeight;
+        const fontFamily= settings.fontFamily      || DEFAULT_PAGE_SETTINGS.fontFamily;
+        const rowH      = { compact:'36px', comfortable:'44px', spacious:'54px' }[rowDensity] || '44px';
+        const sm        = Math.max(10, fontSize - 2);
+        const lg        = fontSize + 2;
 
-        root.style.setProperty('--page-font-size', `${fontSize}px`);
-        root.style.setProperty('--page-font-family', settings.fontFamily || DEFAULT_PAGE_SETTINGS.fontFamily);
-        root.style.setProperty('--text', textColor);
-        root.style.setProperty('--g1', accentColor);
-        root.style.setProperty('--g2', accentColor);
-        root.style.setProperty('--g3', accentColor);
-        root.style.setProperty('--bg', backgroundColor);
-        root.style.setProperty('--bg2', mixColor(backgroundColor, '#f8fafc', 0.55));
-        root.style.setProperty('--bg3', mixColor(backgroundColor, '#e2e8f0', 0.45));
+        // ── Colors & layout via CSS variables ──
+        root.style.setProperty('--row-h', rowH);
+        root.style.setProperty('--text',  textColor);
+        root.style.setProperty('--g1',    accent);
+        root.style.setProperty('--g2',    accent);
+        root.style.setProperty('--g3',    accent);
+        root.style.setProperty('--bg',    bgColor);
+        root.style.setProperty('--bg2',   mixColor(bgColor, '#f8fafc', 0.55));
+        root.style.setProperty('--bg3',   mixColor(bgColor, '#e2e8f0', 0.45));
         root.style.setProperty('--muted', mixColor(textColor, '#94a3b8', 0.5));
-        applyFontScaleToScope(document.body, settings);
+
+        // ── Typography via a single injected style tag ──
+        // CSS variables alone don't work because hundreds of CSS rules hardcode
+        // font-family/font-size/font-weight directly. A style tag with !important
+        // is the only reliable way to override them all at once.
+        let ps = document.getElementById('ps-override');
+        if (!ps) { ps = document.createElement('style'); ps.id = 'ps-override'; document.head.appendChild(ps); }
+
+        ps.textContent = `
+            /* Font-family: apply to all text elements */
+            body, body div, body span, body p, body td, body th, body label,
+            body input, body select, body textarea, body button, body a,
+            body li, body h1, body h2, body h3, body h4, body h5, body h6 {
+                font-family: ${fontFamily} !important;
+            }
+            /* Restore Bootstrap Icons (rendered via ::before pseudo-element) */
+            .bi::before, [class^="bi-"]::before, [class*=" bi-"]::before {
+                font-family: bootstrap-icons !important;
+            }
+
+            /* Font-size: regular content */
+            body, table.hm td, .filterbar, .search-box, .filter-sel,
+            .upload-panel, .grid-wrap div { font-size: ${fontSize}px !important; }
+
+            /* Font-size: small elements */
+            .btn, .row-count, .stat-pill, .stat-bar { font-size: ${sm}px !important; }
+
+            /* Font-size: headings */
+            .hm-modal-title, .topbar-title { font-size: ${lg}px !important; }
+
+            /* Font-weight: main content */
+            body, table.hm td, .filterbar, .search-box, .filter-sel,
+            .stat-pill, .row-count, .upload-panel {
+                font-weight: ${fontWeight} !important;
+                line-height: ${lineHeight} !important;
+            }
+
+            /* Always-bold elements (preserve hierarchy) */
+            .hm-modal-title, .topbar-title, b, strong, table.hm th,
+            .stat-pill b, .fl { font-weight: 700 !important; }
+        `;
     }
 
     function loadPageSettings() {
@@ -3392,6 +3558,9 @@
         const settings = getStoredPageSettings();
         document.getElementById('psFontSize').value = settings.fontSize;
         document.getElementById('psFontFamily').value = settings.fontFamily;
+        document.getElementById('psFontWeight').value = settings.fontWeight || DEFAULT_PAGE_SETTINGS.fontWeight;
+        document.getElementById('psLineHeight').value = settings.lineHeight || DEFAULT_PAGE_SETTINGS.lineHeight;
+        document.getElementById('psRowDensity').value = settings.rowDensity || DEFAULT_PAGE_SETTINGS.rowDensity;
         document.getElementById('psTextColor').value = settings.textColor;
         document.getElementById('psAccentColor').value = settings.accentColor;
         document.getElementById('psBgColor').value = settings.backgroundColor;
@@ -3408,6 +3577,9 @@
         return {
             fontSize: parseInt(document.getElementById('psFontSize').value, 10) || DEFAULT_PAGE_SETTINGS.fontSize,
             fontFamily: document.getElementById('psFontFamily').value || DEFAULT_PAGE_SETTINGS.fontFamily,
+            fontWeight: document.getElementById('psFontWeight').value || DEFAULT_PAGE_SETTINGS.fontWeight,
+            lineHeight: document.getElementById('psLineHeight').value || DEFAULT_PAGE_SETTINGS.lineHeight,
+            rowDensity: document.getElementById('psRowDensity').value || DEFAULT_PAGE_SETTINGS.rowDensity,
             textColor: document.getElementById('psTextColor').value || DEFAULT_PAGE_SETTINGS.textColor,
             accentColor: document.getElementById('psAccentColor').value || DEFAULT_PAGE_SETTINGS.accentColor,
             backgroundColor: document.getElementById('psBgColor').value || DEFAULT_PAGE_SETTINGS.backgroundColor
@@ -3418,6 +3590,9 @@
         const settings = getPageSettingsFromInputs();
         document.getElementById('psFontSizeVal').textContent = `${settings.fontSize}px`;
         document.getElementById('psFontFamilyVal').textContent = getFontFamilyLabel(settings.fontFamily);
+        document.getElementById('psFontWeightVal').textContent = { '400':'Normal','500':'Medium','600':'Semi-Bold','700':'Bold' }[settings.fontWeight] || 'Normal';
+        document.getElementById('psLineHeightVal').textContent = { '1.3':'Compact','1.5':'Normal','1.8':'Relaxed' }[settings.lineHeight] || 'Normal';
+        document.getElementById('psRowDensityVal').textContent = { compact:'Compact', comfortable:'Comfortable', spacious:'Spacious' }[settings.rowDensity] || 'Comfortable';
         document.getElementById('psTextColorVal').textContent = settings.textColor.toUpperCase();
         document.getElementById('psAccentColorVal').textContent = settings.accentColor.toUpperCase();
         document.getElementById('psBgColorVal').textContent = settings.backgroundColor.toUpperCase();
@@ -3436,6 +3611,9 @@
         localStorage.removeItem(PAGE_SETTINGS_KEY);
         document.getElementById('psFontSize').value = DEFAULT_PAGE_SETTINGS.fontSize;
         document.getElementById('psFontFamily').value = DEFAULT_PAGE_SETTINGS.fontFamily;
+        document.getElementById('psFontWeight').value = DEFAULT_PAGE_SETTINGS.fontWeight;
+        document.getElementById('psLineHeight').value = DEFAULT_PAGE_SETTINGS.lineHeight;
+        document.getElementById('psRowDensity').value = DEFAULT_PAGE_SETTINGS.rowDensity;
         document.getElementById('psTextColor').value = DEFAULT_PAGE_SETTINGS.textColor;
         document.getElementById('psAccentColor').value = DEFAULT_PAGE_SETTINGS.accentColor;
         document.getElementById('psBgColor').value = DEFAULT_PAGE_SETTINGS.backgroundColor;
@@ -3444,70 +3622,19 @@
     }
 
     function getFontFamilyLabel(fontFamily) {
-        switch (fontFamily) {
-            case 'Georgia,serif': return 'Georgia';
-            case "'Trebuchet MS',sans-serif": return 'Trebuchet';
-            case "'JetBrains Mono',monospace": return 'Mono';
-            default: return 'Sora';
-        }
+        const map = {
+            "'Sora',sans-serif": 'Sora',
+            "'Inter',sans-serif": 'Inter',
+            "'DM Sans',sans-serif": 'DM Sans',
+            'Georgia,serif': 'Georgia',
+            "'Trebuchet MS',sans-serif": 'Trebuchet',
+            "'JetBrains Mono',monospace": 'JetBrains Mono',
+            "'Courier New',monospace": 'Courier New'
+        };
+        return map[fontFamily] || 'Sora';
     }
 
-    function initPageSettingsObserver() {
-        if (pageSettingsObserver || !document.body || typeof MutationObserver === 'undefined') return;
-
-        pageSettingsObserver = new MutationObserver(mutations => {
-            const settings = getStoredPageSettings();
-            mutations.forEach(mutation => {
-                mutation.addedNodes.forEach(node => {
-                    if (!(node instanceof HTMLElement)) return;
-                    applyFontScaleToScope(node, settings);
-                });
-            });
-        });
-
-        pageSettingsObserver.observe(document.body, { childList: true, subtree: true });
-    }
-
-    function applyFontScaleToScope(scope, settings) {
-        if (!(scope instanceof HTMLElement)) return;
-
-        const fontScale = (parseInt(settings?.fontSize, 10) || DEFAULT_PAGE_SETTINGS.fontSize) / PAGE_FONT_BASE_SIZE;
-        const targets = [scope, ...scope.querySelectorAll('*')];
-
-        targets.forEach(el => {
-            if (!isFontScalableElement(el)) return;
-
-            const baseFontSize = getBaseFontSize(el);
-            if (!baseFontSize) return;
-
-            el.style.fontSize = `${roundFontSize(baseFontSize * fontScale)}px`;
-        });
-    }
-
-    function isFontScalableElement(el) {
-        if (!(el instanceof HTMLElement)) return false;
-        if (el.closest('svg')) return false;
-
-        const tag = el.tagName;
-        return !['SCRIPT', 'STYLE', 'LINK', 'META', 'TITLE', 'NOSCRIPT', 'BR'].includes(tag);
-    }
-
-    function getBaseFontSize(el) {
-        const cached = parseFloat(el.dataset.hmBaseFontSize || '');
-        if (Number.isFinite(cached) && cached > 0) return cached;
-
-        const computed = parseFloat(window.getComputedStyle(el).fontSize || '');
-        if (!Number.isFinite(computed) || computed <= 0) return null;
-
-        el.dataset.hmBaseFontSize = `${computed}`;
-        return computed;
-    }
-
-    function roundFontSize(value) {
-        return Math.round(value * 100) / 100;
-    }
-
-    function mixColor(primary, secondary, ratio) {
+function mixColor(primary, secondary, ratio) {
         const a = hexToRgb(primary);
         const b = hexToRgb(secondary);
         const mix = (x, y) => Math.round((x * (1 - ratio)) + (y * ratio));
@@ -3527,7 +3654,6 @@
         };
     }
 
-    initPageSettingsObserver();
     loadPageSettings();
 
     // ══════════════════════════════════════════════════════

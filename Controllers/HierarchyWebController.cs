@@ -1125,5 +1125,270 @@ namespace JSAPNEW.Controllers
         }
 
         #endregion
+
+        #region Sales Hierarchy
+
+        /// <summary>URL: /HierarchyWeb/SalesHierarchy</summary>
+        [ActionName("Sales Hierarchy")]
+        public IActionResult SalesHierarchyLegacy()
+        {
+            return RedirectToAction(nameof(SalesHierarchy));
+        }
+
+        /// <summary>URL: /HierarchyWeb/SalesHierarchy</summary>
+        public async Task<IActionResult> SalesHierarchy()
+        {
+            var userId = GetUserId();
+            if (userId == null)
+                return RedirectToAction("Index", "Login");
+
+            if (!await HasHierarchyMasterPermissionAsync(userId.Value))
+            {
+                TempData["Error"] = "You do not have permission to access Sales Hierarchy.";
+                return RedirectToAction("Index");
+            }
+
+            var userInfo = await GetUserInfoFromDatabaseAsync(userId.Value);
+            var hierRole = await GetHierarchyRoleAsync(userId.Value);
+            var isAdmin = hierRole == "Admin" || (hierRole == "None" && IsAdmin(userInfo.RoleName));
+
+            SetViewBagData(userInfo.EmpId, userInfo.RoleName, userInfo.FirstName, userInfo.LastName, isAdmin, hierRole);
+
+            if (!string.IsNullOrEmpty(userInfo.EmpId))
+            {
+                try
+                {
+                    var currentEmployee = await _hierarchyService.GetEmployeeByCodeAsync(userInfo.EmpId);
+                    ViewBag.CurrentEmployee = currentEmployee;
+                    ViewBag.CurrentRoleTypeId = currentEmployee?.RoleTypeId ?? 0;
+                }
+                catch { }
+            }
+
+            try
+            {
+                var companyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
+                ViewBag.InitialSalesData = await _hierarchyService.GetSalesHierarchyFlatAsync(null, null, null, null, null, false, companyId);
+                ViewBag.InitialSalesStats = await _hierarchyService.GetSalesHierarchyStatsAsync(companyId);
+                ViewBag.InitialSalesStates = await _hierarchyService.GetSalesStatesAsync();
+                ViewBag.InitialSalesGroups = await _hierarchyService.GetSalesGroupsAsync();
+                ViewBag.InitialSalesDesignations = await _hierarchyService.GetSalesDesignationsAsync();
+                ViewBag.InitialSalesEmployees = await _hierarchyService.GetSalesEmployeeListAsync();
+            }
+            catch
+            {
+                ViewBag.InitialSalesData = new List<SalesHierarchyRowDto>();
+                ViewBag.InitialSalesStats = new SalesHierarchyStatsDto();
+                ViewBag.InitialSalesStates = new List<SalesStateDto>();
+                ViewBag.InitialSalesGroups = new List<SalesGroupDto>();
+                ViewBag.InitialSalesDesignations = new List<SalesDesignationDto>();
+                ViewBag.InitialSalesEmployees = new List<EmployeeDropdownDto>();
+            }
+
+            return View();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetSalesData(
+            string? h1 = null, string? h2 = null, string? h3 = null, string? h4 = null,
+            string? search = null, bool activeOnly = false)
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false, Message = "Not logged in" });
+
+            if (!await HasHierarchyMasterPermissionAsync(userId.Value))
+                return Json(new { Success = false, Message = "Access denied" });
+
+            try
+            {
+                var companyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
+                var data = await _hierarchyService.GetSalesHierarchyFlatAsync(h1, h2, h3, h4, search, activeOnly, companyId);
+                return Json(new { Success = true, Data = data });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetSalesStats()
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false, Message = "Not logged in" });
+
+            try
+            {
+                var companyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
+                var stats = await _hierarchyService.GetSalesHierarchyStatsAsync(companyId);
+                return Json(new { Success = true, Data = stats });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ImportSalesExcel([FromBody] List<SalesImportRowRequest> rows)
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false, Message = "Not logged in" });
+
+            if (!await HasHierarchyMasterPermissionAsync(userId.Value))
+                return Json(new { Success = false, Message = "Access denied" });
+
+            if (rows == null || rows.Count == 0)
+                return Json(new { Success = false, Message = "No rows provided" });
+
+            try
+            {
+                var companyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
+                var result = await _hierarchyService.ImportSalesHierarchyAsync(rows, userId.Value, companyId);
+                return Json(new
+                {
+                    Success = true,
+                    Data = result,
+                    Message = $"Import complete: {result.RowsUpserted} rows processed, " +
+                              $"{result.EmployeesCreated} employees created, " +
+                              $"{result.EmployeesUpdated} updated, " +
+                              $"{result.TempCodesGenerated} temp codes generated, {result.Errors} errors."
+                });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateSalesRow([FromBody] SalesUpdateRowRequest request)
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false, Message = "Not logged in" });
+
+            if (!await HasHierarchyMasterPermissionAsync(userId.Value))
+                return Json(new { Success = false, Message = "Access denied" });
+
+            try
+            {
+                var result = await _hierarchyService.UpdateSalesRowAsync(request, userId.Value);
+                return Json(new { Success = result.Success, Message = result.Message });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateMissingSalesCodes()
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false, Message = "Not logged in" });
+
+            if (!await HasHierarchyMasterPermissionAsync(userId.Value))
+                return Json(new { Success = false, Message = "Access denied" });
+
+            try
+            {
+                var companyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
+                var updatedCount = await _hierarchyService.UpdateMissingSalesHierarchyCodesAsync(companyId);
+                return Json(new { Success = true, Message = $"Updated codes for {updatedCount} records" });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ShiftSalesEmployee([FromBody] SalesShiftRequest request)
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false, Message = "Not logged in" });
+
+            if (!await HasHierarchyMasterPermissionAsync(userId.Value))
+                return Json(new { Success = false, Message = "Access denied" });
+
+            try
+            {
+                var result = await _hierarchyService.ShiftSalesEmployeeAsync(request, userId.Value);
+                return Json(new { Success = result.Success, Message = result.Message });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetSalesLookups()
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false });
+
+            try
+            {
+                var states = await _hierarchyService.GetSalesStatesAsync();
+                var groups = await _hierarchyService.GetSalesGroupsAsync();
+                var desigs = await _hierarchyService.GetSalesDesignationsAsync();
+                return Json(new { Success = true, States = states, Groups = groups, Designations = desigs });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetSalesHierarchyTree()
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { success = false, message = "Not logged in" });
+            try
+            {
+                var companyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
+                var data = await _hierarchyService.GetSalesHierarchyForTreeAsync(companyId);
+                return Json(new { success = true, data });
+            }
+            catch (Exception ex) { return Json(new { success = false, message = ex.Message }); }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetSalesEmployeeList()
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false, Message = "Not logged in" });
+
+            try
+            {
+                var data = await _hierarchyService.GetSalesEmployeeListAsync();
+                return Json(new { Success = true, Data = data });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateSalesEmployee([FromBody] CreateSalesEmployeeRequest request)
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false, Message = "Not logged in" });
+
+            if (!await HasHierarchyMasterPermissionAsync(userId.Value))
+                return Json(new { Success = false, Message = "Access denied" });
+
+            try
+            {
+                var companyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
+                var result = await _hierarchyService.CreateSalesEmployeeAsync(request, userId.Value, companyId);
+                return Json(new { Success = result.Success, Message = result.Message });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetSalesAuditLogs(int pageNumber = 1, int pageSize = 50, string? search = null)
+        {
+            var userId = GetUserId();
+            if (userId == null) return Json(new { Success = false, Message = "Not logged in" });
+
+            if (!await HasHierarchyMasterPermissionAsync(userId.Value))
+                return Json(new { Success = false, Message = "Access denied" });
+
+            try
+            {
+                var request = new AuditLogRequest
+                {
+                    SearchTerm = search ?? "SalesHierarchy",
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+                var logs = await _hierarchyService.GetSalesAuditLogsAsync(request);
+                return Json(new { Success = true, Data = logs });
+            }
+            catch (Exception ex) { return Json(new { Success = false, Message = ex.Message }); }
+        }
+
+        #endregion
     }
 }

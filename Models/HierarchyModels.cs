@@ -817,4 +817,131 @@ namespace JSAPNEW.Models
     }
 
     #endregion
+
+    #region Sales Hierarchy Models
+
+    public class SalesHierarchyRowDto
+    {
+        public int SalesHierarchyId { get; set; }
+        public int CompanyId { get; set; }
+        public string? H1Code { get; set; }
+        public string? H1Name { get; set; }
+        public string? H2Code { get; set; }
+        public string? H2Name { get; set; }
+        public string? H3Code { get; set; }
+        public string? H3Name { get; set; }
+        public string? H4Code { get; set; }
+        public string? H4Name { get; set; }
+        public int? EmployeeId { get; set; }
+        public string? EmpCode { get; set; }
+        public string? EmpName { get; set; }
+        public string? State { get; set; }
+        public string? GroupName { get; set; }
+        public string? Designation { get; set; }
+        public string? Department { get; set; }
+        public string? Mobile { get; set; }
+        public string? Email { get; set; }
+        public DateTime? DateOfJoining { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedOn { get; set; }
+        public DateTime? ModifiedOn { get; set; }
+    }
+
+    public class SalesImportRowRequest
+    {
+        public int RowNumber { get; set; }
+        // Hierarchy codes (EC H1–H4) and names (H1–H4)
+        public string? H1Code { get; set; }
+        public string? H1Name { get; set; }
+        public string? H2Code { get; set; }
+        public string? H2Name { get; set; }
+        public string? H3Code { get; set; }
+        public string? H3Name { get; set; }
+        public string? H4Code { get; set; }
+        public string? H4Name { get; set; }
+        // Employee (leaf)
+        public string? EmpCode { get; set; }
+        public string? EmpName { get; set; }
+        // Classification
+        public string? State { get; set; }
+        public string? GroupName { get; set; }
+        public string? Designation { get; set; }
+    }
+
+    public class SalesImportResult
+    {
+        public int TotalRows { get; set; }
+        public int RowsUpserted { get; set; }
+        public int EmployeesCreated { get; set; }
+        public int EmployeesUpdated { get; set; }
+        public int TempCodesGenerated { get; set; }
+        public List<string> TempCodes { get; set; } = new();
+        public int Errors { get; set; }
+        public List<string> ErrorDetails { get; set; } = new();
+    }
+
+    public class SalesHierarchyStatsDto
+    {
+        public int H1Count { get; set; }
+        public int H2Count { get; set; }
+        public int H3Count { get; set; }
+        public int H4Count { get; set; }
+        public int TotalEmployees { get; set; }
+        public int ActiveCount { get; set; }
+        public int InactiveCount { get; set; }
+    }
+
+    public class SalesStateDto
+    {
+        public int StateId { get; set; }
+        public string StateName { get; set; } = "";
+        public bool IsActive { get; set; }
+    }
+
+    public class SalesGroupDto
+    {
+        public int GroupId { get; set; }
+        public string GroupName { get; set; } = "";
+        public bool IsActive { get; set; }
+    }
+
+    public class SalesDesignationDto
+    {
+        public int DesignationId { get; set; }
+        public string DesignationName { get; set; } = "";
+        public bool IsActive { get; set; }
+    }
+
+    public class SalesUpdateRowRequest
+    {
+        [Required] public int SalesHierarchyId { get; set; }
+        public string? EmpCode { get; set; }
+        public string? EmpName { get; set; }
+        public string? State { get; set; }
+        public string? GroupName { get; set; }
+        public string? Designation { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    public class SalesShiftRequest
+    {
+        [Required] public int SalesHierarchyId { get; set; }
+        public string? NewH1Code { get; set; }
+        public string? NewH1Name { get; set; }
+        public string? NewH2Code { get; set; }
+        public string? NewH2Name { get; set; }
+        public string? NewH3Code { get; set; }
+        public string? NewH3Name { get; set; }
+        public string? NewH4Code { get; set; }
+        public string? NewH4Name { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    public class CreateSalesEmployeeRequest
+    {
+        [Required] public string EmpCode { get; set; } = "";
+        [Required] public string EmpName { get; set; } = "";
+    }
+
+    #endregion
 }

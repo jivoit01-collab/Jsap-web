@@ -4,7 +4,7 @@
 }
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="~/css/task-dashboard.css?v=20260343" />
+<link rel="stylesheet" href="~/css/task-dashboard.css?v=20260420a" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <style>
     /* Dept Cards */
@@ -180,12 +180,14 @@
         #hierarchySection .td-emp-avatar {
             width: 32px;
             height: 32px;
+            min-width: 32px;
             border-radius: 50%;
+            background-color: #ede9fe !important;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 13px;
-            color: #fff;
+            font-size: 12px;
+            color: #4f46e5 !important;
             font-weight: 700;
             flex-shrink: 0;
         }
@@ -671,16 +673,17 @@
     .subhod-emp-avatar {
         width: 40px;
         height: 40px;
+        min-width: 40px;
         border-radius: 50%;
-        background: linear-gradient(135deg,#4f46e5,#7c3aed);
-        color: #fff;
+        background-color: #ede9fe !important;
+        color: #4f46e5 !important;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 14px;
         font-weight: 700;
         flex-shrink: 0;
-        box-shadow: 0 2px 8px rgba(79,70,229,.3);
+        box-shadow: 0 2px 8px rgba(79,70,229,.2);
     }
 
     .subhod-emp-info {
@@ -1097,8 +1100,13 @@
                         </button>
                         <button type="button" class="td-type-btn" data-type="ASSIGN" onclick="selectTaskType('ASSIGN')">
                             <i class="fas fa-user-plus"></i>
-                            <span>Assign Task</span>
-                            <small>Assign task to allowed team members</small>
+                            <span>Team Task</span>
+                            <small>Assign task to your team members</small>
+                        </button>
+                        <button type="button" class="td-type-btn" data-type="HOD" id="hodTaskBtn" onclick="selectTaskType('HOD')" style="display:none;">
+                            <i class="fas fa-user-tie"></i>
+                            <span>HOD Task</span>
+                            <small>Assign task to an HOD</small>
                         </button>
                     </div>
                 </div>
@@ -1249,10 +1257,11 @@
     const EMPLOYEE_NAME = '@Html.Raw(ViewBag.EmployeeName ?? "")';
     const EMPLOYEE_CODE = '@Html.Raw(ViewBag.EmployeeCode ?? "")';
     const IS_ADMIN = @(ViewBag.IsAdmin != null && ViewBag.IsAdmin == true ? "true" : "false");
+    const CAN_ASSIGN_HOD = @(ViewBag.CanAssignHod != null && ViewBag.CanAssignHod == true ? "true" : "false");
     const ADMIN_LABEL = '@Html.Raw(ViewBag.AdminLabel ?? "")';
     const USER_ID = @(ViewBag.UserId != null ? ViewBag.UserId : 0);
     const HIERARCHY_PRELOAD = @Html.Raw(ViewBag.HierarchyJson != null ? ViewBag.HierarchyJson.ToString() : "null");
 
     console.log('Dashboard loaded - EmployeeId:', EMPLOYEE_ID, 'RoleTypeId:', ROLE_TYPE_ID, 'Name:', EMPLOYEE_NAME, 'IsAdmin:', IS_ADMIN);
 </script>
-<script src="~/js/task-dashboard.js?v=20260363"></script>
+<script src="~/js/task-dashboard.js?v=20260420a"></script>

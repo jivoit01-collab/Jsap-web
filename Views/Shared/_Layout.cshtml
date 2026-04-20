@@ -1467,11 +1467,11 @@
                 displayName: 'Task Manager',
                 icon: 'fas fa-list-check',
                 permissions: {
-                    'Creator': {
-                        displayName: 'Task',
-                        url: '@Url.Action("Tasks", "TaskWeb")'
-                    },
                     'Admin_task': {
+                        displayName: 'Task',
+                        url: '@Url.Action("Dashboard", "TaskWeb")'
+                    },
+                    'HOD_task': {
                         displayName: 'Task',
                         url: '@Url.Action("Dashboard", "TaskWeb")'
                     }
@@ -1510,12 +1510,12 @@
                         url: '@Url.Action("Index", "HierarchyWeb")'
                     },
                     'Hierarchy_Master': {
-                        displayName: 'Hierarchy Master',
-                        url: '@Url.Action("HierarchyMaster", "HierarchyWeb")'
-                        //links: [
-                        //    { displayName: 'Hierarchy Master', url: '@Url.Action("HierarchyMaster", "HierarchyWeb")' },
-                        //    { displayName: 'Employee Hierarchy', url: '@Url.Action("EmployeeHierarchy", "HierarchyWeb")' }
-                        //]
+                        displayName: 'HO Hierarchy Master',
+                        url: '@Url.Action("HierarchyMaster", "HierarchyWeb")',
+                        links: [
+                            { displayName: 'HO Hierarchy Master', url: '@Url.Action("HierarchyMaster", "HierarchyWeb")' },
+                            { displayName: 'Sales Hierarchy Master', url: '@Url.Action("SalesHierarchy", "HierarchyWeb")' }
+                        ]
                     },
                     'Employee_Master': {
                         displayName: 'Employee Hierarchy',
