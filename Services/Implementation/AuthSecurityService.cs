@@ -1,86 +1,114 @@
-using System.Collections.Concurrent;
-using JSAPNEW.Services.Interfaces;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using JSAPNEW.Models;
+using JSAPNEW.Services.Interfaces;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace JSAPNEW.Services.Implementation
 {
     public class AuthSecurityService : IAuthSecurityService
     {
-        private static readonly ConcurrentDictionary<string, DateTime> _revokedAccessTokens = new();
-        private static readonly ConcurrentDictionary<string, Models.RefreshToken> _refreshTokens = new();
-        private static readonly ConcurrentDictionary<int, List<string>> _userRefreshTokens = new();
+        private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(7);
+        private readonly IDataProtector _protector;
+
+        public AuthSecurityService(IDataProtectionProvider dataProtectionProvider)
+        {
+            _protector = dataProtectionProvider.CreateProtector("JSAP.RefreshToken.v1");
+        }
 
         public Task<bool> IsAccessTokenRevokedAsync(string jti)
-        {
-            if (_revokedAccessTokens.TryGetValue(jti, out var expiry))
-            {
-                if (DateTime.UtcNow > expiry)
-                    _revokedAccessTokens.TryRemove(jti, out _);
-                else
-                    return Task.FromResult(true);
-            }
-            return Task.FromResult(false);
-        }
+            => Task.FromResult(false);
 
         public Task RevokeAccessTokenAsync(string jti)
-        {
-            _revokedAccessTokens.TryAdd(jti, DateTime.UtcNow.AddMinutes(70));
-            return Task.CompletedTask;
-        }
+            => Task.CompletedTask;
 
         public Task<string> GenerateRefreshTokenAsync(int userId, string ipAddress)
-        {
-            var tokenBytes = new byte[64];
-            using var rng = RandomNumberGenerator.Create();
-            rng.GetBytes(tokenBytes);
-            var token = Convert.ToBase64String(tokenBytes);
+            => GenerateRefreshTokenAsync(userId, ipAddress, string.Empty, "User");
 
-            var refreshToken = new Models.RefreshToken
+        public Task<string> GenerateRefreshTokenAsync(int userId, string ipAddress, string userAgent, string role)
+        {
+            var record = new StatelessRefreshToken
             {
                 UserId = userId,
-                Token = token,
-                ExpiresUtc = DateTime.UtcNow.AddDays(7),
-                CreatedUtc = DateTime.UtcNow
+                Role = string.IsNullOrWhiteSpace(role) ? "User" : role,
+                ExpiresUtc = DateTime.UtcNow.Add(RefreshTokenLifetime),
+                CreatedUtc = DateTime.UtcNow,
+                Nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)),
+                IpAddress = ipAddress ?? string.Empty,
+                UserAgentHash = HashValue(userAgent ?? string.Empty)
             };
 
-            _refreshTokens.TryAdd(token, refreshToken);
-            _userRefreshTokens.AddOrUpdate(userId, _ => new List<string> { token }, (_, list) => { list.Add(token); return list; });
-            return Task.FromResult(token);
+            return Task.FromResult(_protector.Protect(JsonSerializer.Serialize(record)));
         }
 
         public Task<bool> ValidateRefreshTokenAsync(string token, int userId)
+            => ValidateRefreshTokenAsync(token, userId, string.Empty, string.Empty);
+
+        public async Task<bool> ValidateRefreshTokenAsync(string token, int userId, string ipAddress, string userAgent)
         {
-            if (_refreshTokens.TryGetValue(token, out var rt))
+            var result = await ValidateRefreshTokenAsync(token, ipAddress, userAgent);
+            return result.IsValid && result.UserId == userId;
+        }
+
+        public Task<(bool IsValid, int UserId, string Role)> ValidateRefreshTokenAsync(string token, string ipAddress, string userAgent)
+        {
+            var record = Unprotect(token);
+            if (record == null || record.ExpiresUtc <= DateTime.UtcNow || record.UserId <= 0)
+                return Task.FromResult((false, 0, string.Empty));
+
+            if (!string.IsNullOrWhiteSpace(record.UserAgentHash) &&
+                record.UserAgentHash != HashValue(userAgent ?? string.Empty))
             {
-                if (!rt.IsActive || rt.UserId != userId)
-                    return Task.FromResult(false);
-                return Task.FromResult(true);
+                return Task.FromResult((false, 0, string.Empty));
             }
-            return Task.FromResult(false);
+
+            if (!string.IsNullOrWhiteSpace(record.IpAddress) &&
+                !string.IsNullOrWhiteSpace(ipAddress) &&
+                !string.Equals(record.IpAddress, ipAddress, StringComparison.Ordinal))
+            {
+                return Task.FromResult((false, 0, string.Empty));
+            }
+
+            return Task.FromResult((true, record.UserId, string.IsNullOrWhiteSpace(record.Role) ? "User" : record.Role));
         }
 
         public Task RevokeRefreshTokenAsync(string token, string ipAddress, string? replacedByToken = null)
-        {
-            if (_refreshTokens.TryGetValue(token, out var rt))
-            {
-                rt.RevokedByIp = ipAddress;
-                rt.ReplacedByToken = replacedByToken;
-            }
-            return Task.CompletedTask;
-        }
+            => Task.CompletedTask;
 
         public Task RevokeAllUserTokensAsync(int userId)
+            => Task.CompletedTask;
+
+        private StatelessRefreshToken? Unprotect(string token)
         {
-            if (_userRefreshTokens.TryGetValue(userId, out var tokens))
+            if (string.IsNullOrWhiteSpace(token))
+                return null;
+
+            try
             {
-                foreach (var token in tokens)
-                {
-                    if (_refreshTokens.TryGetValue(token, out var rt))
-                        rt.RevokedByIp = "admin-revoked";
-                }
-                tokens.Clear();
+                return JsonSerializer.Deserialize<StatelessRefreshToken>(_protector.Unprotect(token));
             }
-            return Task.CompletedTask;
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string HashValue(string value)
+        {
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+            return Convert.ToBase64String(hash);
+        }
+
+        private sealed class StatelessRefreshToken
+        {
+            public int UserId { get; set; }
+            public string Role { get; set; } = "User";
+            public DateTime ExpiresUtc { get; set; }
+            public DateTime CreatedUtc { get; set; }
+            public string Nonce { get; set; } = string.Empty;
+            public string IpAddress { get; set; } = string.Empty;
+            public string UserAgentHash { get; set; } = string.Empty;
         }
     }
 }

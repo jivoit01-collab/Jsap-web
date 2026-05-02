@@ -6,12 +6,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Data.SqlClient;
 using ServiceStack.Messaging;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace JSAPNEW.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
+    [EnableRateLimiting("PaymentApi")]
     public class PaymentController : ControllerBase
     {
         private readonly IPaymentService _paymentService; //An interface for bom-related operations

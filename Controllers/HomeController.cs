@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace JSAPNEW.Controllers
 {
+    [Authorize]
     public class HomeController : Controller
     {
         public IActionResult Index()

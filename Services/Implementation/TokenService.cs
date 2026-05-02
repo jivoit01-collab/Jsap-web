@@ -25,16 +25,16 @@ namespace JSAPNEW.Services.Implementation
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.userId.ToString()),
-                new Claim(ClaimTypes.Name, user.loginUser),
+                new Claim("userId", user.userId.ToString()),
+                new Claim(ClaimTypes.Name, user.userName),
                 new Claim(ClaimTypes.Email, user.userEmail ?? string.Empty),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
             };
 
-            if (!string.IsNullOrWhiteSpace(user.Role))
-            {
-                claims.Add(new Claim(ClaimTypes.Role, user.Role));
-            }
+            var role = string.IsNullOrWhiteSpace(user.Role) ? "User" : user.Role.Trim();
+            claims.Add(new Claim(ClaimTypes.Role, role));
+            claims.Add(new Claim("role", role));
 
             var token = new JwtSecurityToken(
                 issuer: jwtSettings.Issuer,
@@ -81,7 +81,7 @@ namespace JSAPNEW.Services.Implementation
                 SecretKey = _configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured"),
                 Issuer = _configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT Issuer not configured"),
                 Audience = _configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT Audience not configured"),
-                ExpiryInMinutes = _configuration.GetValue("Jwt:ExpiryInMinutes", 60)
+                ExpiryInMinutes = Math.Clamp(_configuration.GetValue("Jwt:ExpiryInMinutes", 15), 10, 15)
             };
         }
     }

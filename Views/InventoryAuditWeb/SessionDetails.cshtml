@@ -256,7 +256,7 @@
             let html = '';
 
             users.forEach(function (user, index) {
-                const initials = getInitials(user.loginUser);
+                const initials = getInitials(user.userName);
                 const activeClass = index === 0 ? 'active' : '';
 
                 html += `
@@ -264,7 +264,7 @@
                         <div class="card user-card ${activeClass}" data-userid="${user.userId}" onclick="selectUser(${user.userId})">
                             <div class="card-body text-center">
                                 <div class="user-initials">${initials}</div>
-                                <h6 class="card-title mb-1">${user.loginUser}</h6>
+                                <h6 class="card-title mb-1">${user.userName}</h6>
                                 <span class="badge badge-primary badge-role">${user.roleInSession}</span>
                                 <div class="mt-2">
                                     <small class="text-muted">

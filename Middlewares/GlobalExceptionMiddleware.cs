@@ -61,12 +61,6 @@ namespace JSAPNEW.Middlewares
                 errorResponse.Message = exception.Message;
             }
 
-            if (_environment.IsDevelopment())
-            {
-                errorResponse.Details = exception.Message;
-                errorResponse.StackTrace = exception.StackTrace;
-            }
-
             var result = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase

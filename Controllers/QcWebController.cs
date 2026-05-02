@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace JSAPNEW.Controllers
 {
+    [Authorize]
     public class QcWebController : Controller
     {
         private readonly IPrdoService _PrdoService;

@@ -194,12 +194,9 @@
     let allMoms = [];
 
     $(document).ready(function () {
-        console.log("TOKEN:", localStorage.getItem("accessToken") ? "Present" : "Missing");
-        if (!localStorage.getItem("accessToken")) {
-            window.location.href = "/Login";
-            return;
-        }
-        loadAllMoMs();
+        (window.APP && window.APP.ensureAccessToken ? window.APP.ensureAccessToken() : Promise.resolve())
+            .then(loadAllMoMs)
+            .catch(function () { window.location.href = "/Login"; });
 
         $("#searchBox").keyup(function () {
             filterMoms($(this).val());

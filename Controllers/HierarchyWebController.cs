@@ -6,6 +6,7 @@ using JSAPNEW.Services;
 
 namespace JSAPNEW.Controllers
 {
+    [Authorize]
     public class HierarchyWebController : Controller
     {
         private readonly IHierarchyService _hierarchyService;

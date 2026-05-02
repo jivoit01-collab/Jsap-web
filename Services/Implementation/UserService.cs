@@ -203,7 +203,8 @@ namespace JSAPNEW.Services.Implementation
                 return user == null ? null : new UserDto
                 {
                     userId = user.UserId,
-                    loginUser = user.LoginUser
+                    userName = user.UserName ?? string.Empty,
+                    loginUser = user.LoginUser ?? string.Empty
                 };
             }
         }

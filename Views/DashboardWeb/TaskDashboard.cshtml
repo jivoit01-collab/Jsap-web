@@ -1022,12 +1022,9 @@
     const pieColors = ['#0b2c4d', '#1a4a7a', '#2d6a9f', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
     document.addEventListener('DOMContentLoaded', function () {
-        console.log("TOKEN:", localStorage.getItem("accessToken") ? "Present" : "Missing");
-        if (!localStorage.getItem("accessToken")) {
-            window.location.href = "/Login";
-            return;
-        }
-        loadDashboard();
+        (window.APP && window.APP.ensureAccessToken ? window.APP.ensureAccessToken() : Promise.resolve())
+            .then(loadDashboard)
+            .catch(function () { window.location.href = "/Login"; });
     });
 
     function setGroupBy(groupBy) {

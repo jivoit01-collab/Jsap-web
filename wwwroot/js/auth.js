@@ -2,39 +2,130 @@
     if (window.__authInitialized) return;
     window.__authInitialized = true;
 
-    /* ========== FETCH INTERCEPTOR ========== */
-    (function () {
-        var originalFetch = window.fetch;
-        window.fetch = function () {
-            var args = Array.prototype.slice.call(arguments);
-            var options = args[1] || {};
-            options.credentials = options.credentials || "include";
-            args[1] = options;
-            return originalFetch.apply(this, args).then(function (response) {
-                if (response.status === 401) {
-                    console.warn("API returned 401 (unauthorized). Check authentication.");
-                    // 不要自动重定向 - 让服务器 [Authorize] 处理页面级重定向
-                    // 只会影响到 API 调用的错误处理
-                }
-                return response;
-            });
-        };
-    })();
+    var accessToken = null;
+    var refreshPromise = null;
 
-    /* ========== JQUERY AJAX SETUP ========== */
+    function isAuthUrl(url) {
+        var value = typeof url === "string" ? url : (url && url.url) || "";
+        return value.toLowerCase().indexOf("/api/auth/refresh") >= 0 ||
+            value.toLowerCase().indexOf("/api/auth/login") >= 0 ||
+            value.toLowerCase().indexOf("/api/auth/logout") >= 0;
+    }
+
+    function mergeHeaders(existing, extra) {
+        var headers = new Headers(existing || {});
+        Object.keys(extra || {}).forEach(function (key) {
+            if (extra[key] !== undefined && extra[key] !== null) {
+                headers.set(key, extra[key]);
+            }
+        });
+        return headers;
+    }
+
+    async function refreshAccessToken() {
+        if (refreshPromise) return refreshPromise;
+
+        refreshPromise = window.__nativeFetch("/api/Auth/refresh", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({})
+        })
+            .then(async function (response) {
+                if (!response.ok) {
+                    accessToken = null;
+                    throw new Error("Unable to refresh authentication");
+                }
+
+                var data = await response.json();
+                if (!data || !data.accessToken) {
+                    accessToken = null;
+                    throw new Error("Invalid refresh response");
+                }
+
+                accessToken = data.accessToken;
+                return accessToken;
+            })
+            .finally(function () {
+                refreshPromise = null;
+            });
+
+        return refreshPromise;
+    }
+
+    async function authFetch(input, init, retrying) {
+        var options = Object.assign({}, init || {});
+        options.credentials = options.credentials || "include";
+
+        if (accessToken && !isAuthUrl(input)) {
+            options.headers = mergeHeaders(options.headers, {
+                Authorization: "Bearer " + accessToken
+            });
+        }
+
+        var response = await window.__nativeFetch(input, options);
+        if (response.status !== 401 || retrying || isAuthUrl(input)) {
+            return response;
+        }
+
+        try {
+            await refreshAccessToken();
+            return authFetch(input, init, true);
+        } catch (error) {
+            console.warn("Authentication refresh failed.");
+            return response;
+        }
+    }
+
+    window.__nativeFetch = window.__nativeFetch || window.fetch.bind(window);
+    window.fetch = function (input, init) {
+        return authFetch(input, init, false);
+    };
+
+    window.APP = window.APP || {};
+
+    window.APP.setAccessToken = function (token) {
+        accessToken = token || null;
+    };
+
+    window.APP.clearAccessToken = function () {
+        accessToken = null;
+    };
+
+    window.APP.ensureAccessToken = refreshAccessToken;
+
+    window.APP.getAuthHeaders = function () {
+        var headers = { "Content-Type": "application/json" };
+        if (accessToken) {
+            headers.Authorization = "Bearer " + accessToken;
+        }
+        return headers;
+    };
+
+    window.APP.getAuthFetch = function (url, options) {
+        options = options || {};
+        options.headers = mergeHeaders(options.headers, window.APP.getAuthHeaders());
+        options.credentials = options.credentials || "include";
+        return fetch(url, options);
+    };
+
     function setupJQueryAuth() {
         if (typeof jQuery === "undefined") return;
         var $ = jQuery;
 
         $.ajaxSetup({
-            xhrFields: { withCredentials: true }
+            xhrFields: { withCredentials: true },
+            beforeSend: function (xhr, settings) {
+                if (accessToken && !isAuthUrl(settings.url)) {
+                    xhr.setRequestHeader("Authorization", "Bearer " + accessToken);
+                }
+            }
         });
 
         $(document).ajaxError(function (event, xhr, settings, thrownError) {
             if (xhr.status === 0 || thrownError === "abort") return;
             if (xhr.status === 401) {
-                console.warn("API returned 401 (unauthorized). Check authentication.");
-                // 不要自动重定向 - 让服务器处理
+                console.warn("API returned 401 (unauthorized).");
                 return;
             }
             if (xhr.status === 403) {
@@ -62,9 +153,6 @@
             }
         });
     }
-
-    /* ========== UI ERROR HELPERS ========== */
-    window.APP = window.APP || {};
 
     window.APP.showError = function (title, message) {
         var overlay = document.getElementById("appErrorOverlay");
@@ -104,18 +192,16 @@
         if (overlay) overlay.style.display = "none";
     };
 
-    window.APP.getAuthFetch = function (url, options) {
-        options = options || {};
-        options.credentials = options.credentials || "include";
-        return fetch(url, options);
-    };
-
-    /* ========== INIT ========== */
     setupJQueryAuth();
 
     if (typeof document !== "undefined") {
         document.addEventListener("DOMContentLoaded", function () {
             setupJQueryAuth();
+            if (!window.location.pathname.toLowerCase().includes("/login")) {
+                refreshAccessToken().catch(function () {
+                    window.location.href = "/Login";
+                });
+            }
         });
     }
 

@@ -4,16 +4,54 @@ using JSAPNEW.Services.Interfaces;
 using JSAPNEW.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using JSAPNEW.Middlewares;
+using JSAPNEW.Filters;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
-builder.Services.AddControllersWithViews();
+var authenticatedPolicy = new AuthorizationPolicyBuilder("SmartAuth")
+    .RequireAuthenticatedUser()
+    .Build();
+
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add(new AuthorizeFilter(authenticatedPolicy));
+    options.Filters.Add<AuthenticatedUserBindingFilter>();
+    options.Filters.Add<SensitiveErrorResponseFilter>();
+});
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add(new AuthorizeFilter(authenticatedPolicy));
+    options.Filters.Add<AuthenticatedUserBindingFilter>();
+    options.Filters.Add<SensitiveErrorResponseFilter>();
+});
 
 // ============================================
-// COOKIE AUTHENTICATION (SECURE - PRIMARY)
+// COOKIE + JWT AUTHENTICATION
 // ============================================
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = "SmartAuth";
+        options.DefaultChallengeScheme = "SmartAuth";
+    })
+    .AddPolicyScheme("SmartAuth", "Cookie or JWT", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+        {
+            var authorization = context.Request.Headers.Authorization.ToString();
+            return authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? JwtBearerDefaults.AuthenticationScheme
+                : CookieAuthenticationDefaults.AuthenticationScheme;
+        };
+    })
     .AddCookie(options =>
     {
         options.Cookie.Name = "JSAP.Auth";
@@ -24,8 +62,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SameSite = SameSiteMode.Strict;
         options.LoginPath = "/Login";
         options.AccessDeniedPath = "/Login";
-        options.ExpireTimeSpan = TimeSpan.FromDays(7);
-        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = false;
         options.Events = new CookieAuthenticationEvents
         {
             OnRedirectToLogin = context =>
@@ -51,12 +89,68 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                 return Task.CompletedTask;
             }
         };
+    })
+    .AddJwtBearer(options =>
+    {
+        var secretKey = builder.Configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
+        var issuer = builder.Configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT Issuer not configured");
+        var audience = builder.Configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT Audience not configured");
+        if (Encoding.UTF8.GetByteCount(secretKey) < 32)
+            throw new InvalidOperationException("JWT SecretKey must be at least 256 bits.");
+
+        options.SaveToken = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            RequireSignedTokens = true,
+            RequireExpirationTime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidIssuer = issuer,
+            ValidAudience = audience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = ClaimTypes.NameIdentifier,
+            RoleClaimType = ClaimTypes.Role
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var principal = context.Principal;
+                var userId = principal?.FindFirstValue("userId") ?? principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var role = principal?.FindFirstValue(ClaimTypes.Role) ?? principal?.FindFirstValue("role");
+                var jti = principal?.FindFirstValue(JwtRegisteredClaimNames.Jti);
+
+                if (!int.TryParse(userId, out var parsedUserId) ||
+                    parsedUserId <= 0 ||
+                    string.IsNullOrWhiteSpace(role) ||
+                    string.IsNullOrWhiteSpace(jti))
+                {
+                    context.Fail("JWT is missing required identity claims.");
+                    return Task.CompletedTask;
+                }
+
+                var revocationService = context.HttpContext.RequestServices.GetRequiredService<ITokenRevocationService>();
+                if (revocationService.IsRevoked(jti))
+                {
+                    context.Fail("JWT has been revoked.");
+                }
+
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                return Task.CompletedTask;
+            }
+        };
     });
 
 // Session for storing additional user data (company list, etc.)
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromDays(7);
+    options.IdleTimeout = TimeSpan.FromHours(8);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
@@ -73,17 +167,112 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddAuthorization(options =>
 {
+    options.FallbackPolicy = authenticatedPolicy;
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", "Super User"));
     options.AddPolicy("SuperAdminOnly", policy => policy.RequireRole("SuperAdmin", "Super User"));
 });
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var baseKey = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? context.Connection.RemoteIpAddress?.ToString()
+            ?? "anonymous";
+        var method = context.Request.Method;
+        var path = context.Request.Path.Value ?? string.Empty;
+
+        if (path.StartsWith("/api/Payment", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetFixedWindowLimiter($"payment:{baseKey}", _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+        }
+
+        if (path.Contains("Upload", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("Download", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/api/files", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetFixedWindowLimiter($"file:{baseKey}", _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+        }
+
+        if (HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method))
+        {
+            return RateLimitPartition.GetFixedWindowLimiter($"mutation:{baseKey}", _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 40,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+        }
+
+        return RateLimitPartition.GetFixedWindowLimiter($"global:{baseKey}", _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 120,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
+    });
+    options.AddFixedWindowLimiter("Login", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 5;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("PaymentApi", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 30;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("FileTransfer", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 20;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("SensitiveMutation", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 40;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueLimit = 0;
+    });
+});
+
 var appUrl = builder.Configuration["App:Url"] ?? "http://localhost:5000";
+var configuredCorsOrigins = (Environment.GetEnvironmentVariable("JSAP_CORS_ORIGINS") ?? builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .Where(origin => !origin.Contains('*'))
+    .ToList();
+
+if (!string.IsNullOrWhiteSpace(appUrl) && !appUrl.Contains('*'))
+{
+    configuredCorsOrigins.Add(appUrl);
+}
+
+if (builder.Environment.IsDevelopment())
+{
+    configuredCorsOrigins.AddRange(new[] { "http://localhost:3000", "http://localhost:5173" });
+}
+
+var corsOrigins = configuredCorsOrigins
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigin", policy =>
     {
-        policy.WithOrigins(appUrl, "http://localhost:3000", "http://localhost:5173")
+        policy.WithOrigins(corsOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -91,6 +280,9 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IAuthSecurityService, AuthSecurityService>();
+builder.Services.AddSingleton<ITokenRevocationService, DistributedTokenRevocationService>();
 builder.Services.AddScoped<IBomService, BomService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
@@ -165,6 +357,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 app.UseCors("AllowSpecificOrigin");
 app.UseSession();
 app.UseAuthentication();

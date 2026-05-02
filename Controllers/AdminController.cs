@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace JSAPNEW.Controllers
 {
-    [Authorize]
+    [Authorize(Policy = "AdminOnly")]
     public class AdminController : Controller
     {
         private readonly IConfiguration _config;

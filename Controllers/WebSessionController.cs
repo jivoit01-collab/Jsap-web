@@ -5,11 +5,14 @@ using Newtonsoft.Json;
 using System.Collections.Generic;
 using System;
 using JSAPNEW.Data.Entities;
+using JSAPNEW.Models;
 using JSAPNEW.Services.Interfaces;
+using System.Security.Claims;
 
 namespace JSAPNEW.Controllers
 {
     [Route("websession")]
+    [Authorize]
     public class WebSessionController : Controller
     {
         private readonly IUserService _userService;
@@ -20,18 +23,18 @@ namespace JSAPNEW.Controllers
         }
 
         [HttpPost("set")]
-        [AllowAnonymous]
         public async Task<IActionResult> SetSession([FromBody] SessionRequest request)
         {
             try
             {
-                if (request == null || request.UserId <= 0)
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("userId");
+                if (!int.TryParse(userIdClaim, out var userId) || userId <= 0)
                 {
-                    return BadRequest(new { success = false, message = "Invalid request data" });
+                    return Unauthorized(new { success = false, message = "Authentication required" });
                 }
 
                 // Fetch companies using the existing service
-                var companies = (await _userService.GetCompanyAsync(request.UserId))?.ToList();
+                var companies = (await _userService.GetCompanyAsync(userId))?.ToList();
 
                 if (companies == null || companies.Count == 0)
                 {
@@ -39,8 +42,8 @@ namespace JSAPNEW.Controllers
                 }
 
                 // Set session values
-                HttpContext.Session.SetInt32("userId", request.UserId);
-                HttpContext.Session.SetString("username", request.UserName ?? "Guest");
+                HttpContext.Session.SetInt32("userId", userId);
+                HttpContext.Session.SetString("username", User.Identity?.Name ?? request?.UserName ?? "Guest");
                 HttpContext.Session.SetString("companyList", JsonConvert.SerializeObject(companies));
                 HttpContext.Session.SetInt32("selectedCompanyId", companies[0].id);
 
@@ -63,6 +66,16 @@ namespace JSAPNEW.Controllers
                     return BadRequest(new { success = false, message = "Invalid company ID" });
                 }
 
+                var companyListJson = HttpContext.Session.GetString("companyList");
+                var companies = string.IsNullOrWhiteSpace(companyListJson)
+                    ? new List<CompanyModel>()
+                    : JsonConvert.DeserializeObject<List<CompanyModel>>(companyListJson) ?? new List<CompanyModel>();
+
+                if (!companies.Any(c => c.id == req.CompanyId))
+                {
+                    return Forbid();
+                }
+
                 HttpContext.Session.SetInt32("selectedCompanyId", req.CompanyId);
                 return Ok(new { success = true });
             }
@@ -75,7 +88,6 @@ namespace JSAPNEW.Controllers
 
         // Check if user is authenticated via cookie
         [HttpGet("checksession")]
-        [AllowAnonymous]
         public IActionResult CheckSession()
         {
             try

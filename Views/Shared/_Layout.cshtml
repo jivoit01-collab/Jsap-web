@@ -6,7 +6,16 @@
     // Safe access to session values with null checks
     var companyJson = Context.Session.GetString("companyList");
     var selectedCompanyId = Context.Session.GetInt32("selectedCompanyId");
-    var username = Context.Session.GetString("username") ?? "Guest";
+    var username = Context.Session.GetString("loginUser")
+        ?? Context.Session.GetString("username")
+        ?? Context.Session.GetString("userName")
+        ?? User.Identity?.Name;
+    var userEmail = Context.Session.GetString("userEmail")
+        ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+        ?? User.FindFirst("userEmail")?.Value;
+    var sidebarUserDisplay = !string.IsNullOrWhiteSpace(username)
+        ? username
+        : (!string.IsNullOrWhiteSpace(userEmail) ? userEmail : "Guest");
     var userId = Context.Session.GetInt32("userId"); // Get userId from session
 
     List<CompanyDto> companies = new List<CompanyDto>();
@@ -966,7 +975,7 @@
                 <!-- User section at bottom -->
                 <div class="sidebar-user">
                     <i class="fas fa-user-circle"></i>
-                    <h6>@username</h6>
+                    <h6 id="sidebarUserName" title="@sidebarUserDisplay">@sidebarUserDisplay</h6>
                 </div>
             </div>
         </div>
@@ -1822,34 +1831,21 @@
     </script>
     <script>
         (function() {
-            const token = localStorage.getItem("accessToken");
-            const userId = localStorage.getItem("userId");
+            const userId = @userId;
             const currentPath = window.location.pathname.toLowerCase();
-            if (!token || !userId) {
+            if (!userId || userId <= 0) {
                 if (!currentPath.includes("/login")) {
-                    console.log("No auth token found, redirecting to login");
-                    localStorage.clear();
+                    console.log("No authenticated session found, redirecting to login");
                     window.location.href = "/Login";
                 }
                 return;
             }
-            window.APP = {
-                getAuthHeaders: function() {
-                    return {
-                        "Authorization": "Bearer " + localStorage.getItem("accessToken"),
-                        "Content-Type": "application/json"
-                    };
-                },
-                getAuthFetch: function(url, options) {
-                    options = options || {};
-                    options.headers = Object.assign({}, this.getAuthHeaders(), options.headers || {});
-                    options.credentials = options.credentials || "include";
-                    return fetch(url, options);
-                },
+            window.APP = Object.assign(window.APP || {}, {
                 userId: userId,
-                userName: localStorage.getItem("userName") || "",
-                companies: JSON.parse(localStorage.getItem("companies") || "[]")
-            };
+                userName: "@sidebarUserDisplay",
+                userEmail: "@(userEmail ?? "")",
+                companies: @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(companies))
+            });
         })();
 
         // auth.js handles $.ajaxSetup, fetch interceptor, error handlers, and window.APP
@@ -1858,9 +1854,12 @@
             if (confirm('Are you sure you want to logout?')) {
                 fetch('/api/Auth/Logout', {
                     method: 'POST',
-                    headers: { "Authorization": "Bearer " + localStorage.getItem("accessToken"), "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json" },
                     credentials: 'include'
                 }).finally(function() {
+                    if (window.APP && window.APP.clearAccessToken) {
+                        window.APP.clearAccessToken();
+                    }
                     localStorage.clear();
                     window.location.href = '/Login';
                 });

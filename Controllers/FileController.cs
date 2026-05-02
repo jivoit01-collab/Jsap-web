@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Renci.SshNet.Common;
 using Renci.SshNet;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace JSAPNEW.Controllers
 {
@@ -13,18 +14,26 @@ namespace JSAPNEW.Controllers
     [Route("api/files")]
     [ApiController]
     [Authorize]
+    [EnableRateLimiting("FileTransfer")]
     public class FileController : ControllerBase
     {
 
-        private readonly string _sftpHost = "103.89.45.247";
-        private readonly string _sftpUsername = "Admin";
-        private readonly string _sftpPassword = "Manav@2024";
-        private readonly string _sftpPort = "22"; // Default SSH port
+        private readonly string _sftpHost;
+        private readonly string _sftpUsername;
+        private readonly string _sftpPassword;
+        private readonly int _sftpPort;
 
         private readonly IWebHostEnvironment _hostingEnvironment;
-        public FileController(IWebHostEnvironment hostingEnvironment)
+        private readonly ILogger<FileController> _logger;
+        public FileController(IWebHostEnvironment hostingEnvironment, IConfiguration configuration, ILogger<FileController> logger)
         {
             _hostingEnvironment = hostingEnvironment;
+            _logger = logger;
+            _sftpHost = Environment.GetEnvironmentVariable("JSAP_SFTP_HOST") ?? configuration["Sftp:Host"] ?? string.Empty;
+            _sftpUsername = Environment.GetEnvironmentVariable("JSAP_SFTP_USERNAME") ?? configuration["Sftp:Username"] ?? string.Empty;
+            _sftpPassword = Environment.GetEnvironmentVariable("JSAP_SFTP_PASSWORD") ?? configuration["Sftp:Password"] ?? string.Empty;
+            var configuredPort = Environment.GetEnvironmentVariable("JSAP_SFTP_PORT") ?? configuration["Sftp:Port"];
+            _sftpPort = int.TryParse(configuredPort, out var port) ? port : 22;
         }
 
         static string ConvertToCygwinPath(string windowsPath)
@@ -50,11 +59,19 @@ namespace JSAPNEW.Controllers
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(_sftpHost) ||
+                    string.IsNullOrWhiteSpace(_sftpUsername) ||
+                    string.IsNullOrWhiteSpace(_sftpPassword))
+                {
+                    _logger.LogError("SFTP credentials are not configured.");
+                    return StatusCode(500, new { Success = false, Message = "Something went wrong" });
+                }
+
                 string remotePath = Uri.UnescapeDataString(filePath) + "/" + Uri.UnescapeDataString(fileName) + "." + Uri.UnescapeDataString(fileExt);
                 remotePath = ConvertToCygwinPath(remotePath);
                 string localTempPath = Path.Combine(Path.GetTempPath(), fileName + "." + fileExt);
 
-                using (var sftp = new SftpClient(_sftpHost, _sftpUsername, _sftpPassword))
+                using (var sftp = new SftpClient(_sftpHost, _sftpPort, _sftpUsername, _sftpPassword))
                 {
                     sftp.Connect();
 
@@ -91,7 +108,8 @@ namespace JSAPNEW.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Success = false, Message = "Error downloading file", Error = ex.Message });
+                _logger.LogError(ex, "Error downloading file from SFTP.");
+                return StatusCode(500, new { Success = false, Message = "Something went wrong" });
             }
         }
 
@@ -193,6 +211,7 @@ namespace JSAPNEW.Controllers
 
         // Helper method to check file locations
         [HttpGet("debug-file-location")]
+        [Authorize(Policy = "AdminOnly")]
         public IActionResult DebugFileLocation(string filePath, string fileName, string fileExt)
         {
             var wwwrootAdvancePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Uploads", "Advancepayment");
@@ -239,6 +258,7 @@ namespace JSAPNEW.Controllers
 
         // List all files in Uploads directory
         [HttpGet("debug-uploads-structure")]
+        [Authorize(Policy = "AdminOnly")]
         public IActionResult DebugUploadsStructure()
         {
             var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Uploads");

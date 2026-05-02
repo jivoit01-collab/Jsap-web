@@ -710,20 +710,16 @@
     };
 
     $(document).ready(function () {
-        console.log("TOKEN:", localStorage.getItem("accessToken") ? "✅ Present (length: " + localStorage.getItem("accessToken").length + ")" : "❌ Missing");
+        (window.APP && window.APP.ensureAccessToken ? window.APP.ensureAccessToken() : Promise.resolve())
+            .then(function () {
+                console.log("Loading IT Dashboard data...");
+                initChart();
 
-        if (!localStorage.getItem("accessToken")) {
-            console.error("No access token found, redirecting to login");
-            window.location.href = "/Login";
-            return;
-        }
-
-        console.log("🚀 Loading IT Dashboard data...");
-        initChart();
-
-        fetchSummary().always(function(xhr) {
-            console.log("📊 GetSummary response:", xhr.status, xhr.responseText ? xhr.responseText.substring(0, 100) : "no response");
-        });
+                fetchSummary().always(function(xhr) {
+                    console.log("GetSummary response:", xhr.status, xhr.responseText ? xhr.responseText.substring(0, 100) : "no response");
+                });
+            })
+            .catch(function () { window.location.href = "/Login"; });
 
         loadStandards().always(function(xhr) {
             console.log("📋 GetMaster response:", xhr.status, xhr.responseText ? xhr.responseText.substring(0, 100) : "no response");

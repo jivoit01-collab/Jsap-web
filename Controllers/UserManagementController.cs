@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace JSAPNEW.Controllers
 {
-    [Authorize]
+    [Authorize(Policy = "AdminOnly")]
     public class UserManagementController : Controller
     {
         private readonly IUserService _userService;

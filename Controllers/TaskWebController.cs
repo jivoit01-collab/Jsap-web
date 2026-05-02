@@ -7,6 +7,7 @@ using System.Text.Json;
 
 namespace JSAPNEW.Controllers
 {
+    [Authorize]
     public class TaskWebController : Controller
     {
         private readonly ITaskService _taskService;

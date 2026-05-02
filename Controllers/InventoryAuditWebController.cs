@@ -8,6 +8,7 @@ using Org.BouncyCastle.Ocsp;
 
 namespace JSAPNEW.Controllers
 {
+    [Authorize]
     public class InventoryAuditWebController : Controller
     {
         private readonly IUserService _userService;

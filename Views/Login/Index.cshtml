@@ -230,7 +230,6 @@
 
                 const userId = loginData.user.userId;
                 const userName = loginData.user.userName || loginData.user.firstName + " " + loginData.user.lastName;
-                const accessToken = loginData.accessToken;
 
                 if (!userId || userId === 0) {
                     throw new Error("Invalid user data received");
@@ -256,7 +255,6 @@
 
                 localStorage.setItem("userId", userId);
                 localStorage.setItem("userName", userName);
-                localStorage.setItem("accessToken", accessToken);
                 localStorage.setItem("companies", JSON.stringify(companyData.data));
 
                 const sessionRes = await fetch('/websession/set', {
@@ -299,11 +297,16 @@
             const errorEl = document.getElementById("error");
             if (errorEl) errorEl.style.display = "none";
 
-            const token = localStorage.getItem("accessToken");
-            if (token) {
-                console.log("Existing token found, redirecting to dashboard...");
-                window.location.href = "/DashboardWeb/Index";
-            }
+            fetch('/api/Auth/refresh', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            }).then(function(response) {
+                if (response.ok) {
+                    window.location.href = "/DashboardWeb/Index";
+                }
+            }).catch(function() { });
         });
     </script>
 </body>

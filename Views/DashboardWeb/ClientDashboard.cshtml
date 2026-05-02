@@ -493,12 +493,9 @@
     const API_BASE = '/api/Dashboard';
 
     document.addEventListener('DOMContentLoaded', function () {
-        console.log("TOKEN:", localStorage.getItem("accessToken") ? "Present" : "Missing");
-        if (!localStorage.getItem("accessToken")) {
-            window.location.href = "/Login";
-            return;
-        }
-        loadMasterSummary();
+        (window.APP && window.APP.ensureAccessToken ? window.APP.ensureAccessToken() : Promise.resolve())
+            .then(loadMasterSummary)
+            .catch(function () { window.location.href = "/Login"; });
     });
 
     // Load Master Summary

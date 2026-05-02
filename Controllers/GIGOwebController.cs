@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace JSAPNEW.Controllers
 {
+    [Authorize]
     public class GIGOwebController : Controller
     {
         private readonly IGIGOService _gigoService;

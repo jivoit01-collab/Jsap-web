@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace JSAPNEW.Controllers
 {
+    [Authorize]
     public class TicketsWebController : Controller
     {
         // View 1: User Raise Ticket
