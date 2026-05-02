@@ -40,11 +40,11 @@
         vertical-align: middle !important;
     }
 </style>
-<div id="pdfContainer" style="display:none; background:#fff; padding:10px; border-radius:8px;">
+<div id="pdfContainer" class="bill-ui" style="display:none; background:#fff; padding:10px; border-radius:8px;">
 
     <button onclick="closePdf()" 
-            style="margin-bottom:10px; padding:6px 12px; border:none; background:#002147; color:#fff; border-radius:6px;">
-        ⬅ Back
+            class="btn btn-secondary btn-sm mb-2">
+        Back
     </button>
 
     <iframe id="pdfFrame" 
@@ -55,26 +55,26 @@
 <div class="bill-ui">
 <div class="container-fluid mt-4">
 
-    <h3 class="mb-4">Bill Verification - Checker</h3>
+    <h3 class="page-title">Bill Verification - Checker</h3>
 
     <!-- FILTER -->
     <div class="card p-3 shadow-sm">
         <div class="row">
 
             <div class="col-md-3">
-                <label>From Date</label>
+                <label for="fromDate">From Date</label>
                 <input type="date" id="fromDate" class="form-control">
             </div>
 
             <div class="col-md-3">
-                <label>To Date</label>
+                <label for="toDate">To Date</label>
                 <input type="date" id="toDate" class="form-control">
             </div>
 
             <div class="col-md-3 position-relative">
-                <label>Account Name</label>
+                <label for="accountName">Account Name</label>
                 <input type="text" id="accountName" class="form-control" placeholder="Search Account" autocomplete="off">
-                <div id="suggestionBox"></div>
+                <div id="suggestionBox" class="suggestion-box"></div>
             </div>
 
             <div class="col-md-3 d-flex align-items-end">
@@ -88,7 +88,7 @@
     <div class="card mt-4 shadow-sm">
 
         <div class="card-header bg-primary text-white">
-            Bills (Reject Approve)
+            <span>Bills Pending Checker Action</span>
         </div>
 
         <div class="card-body">
@@ -113,7 +113,11 @@
                         </tr>
                     </thead>
 
-                    <tbody id="checkerTable"></tbody>
+                    <tbody id="checkerTable">
+                        <tr class="empty-row">
+                            <td colspan="11" class="text-center">Select filters and click Search to view bills.</td>
+                        </tr>
+                    </tbody>
 
                 </table>
 
@@ -138,18 +142,30 @@ function loadData() {
     let toDate      = $("#toDate").val();
     let accountName = $("#accountName").val().trim() || null;
 
-    $("#checkerTable").html(`<tr><td colspan="11">Loading...</td></tr>`);
+    if (fromDate && toDate && fromDate > toDate) {
+        $("#checkerTable").html(`<tr class="empty-row"><td colspan="11" class="text-center text-danger">From Date cannot be greater than To Date.</td></tr>`);
+        return;
+    }
 
-    $.get("/Checker/GetBillDetails", {
+    $("#checkerTable").html(`<tr class="empty-row"><td colspan="11" class="text-center">Loading bills...</td></tr>`);
+
+    $.ajax({
+        url: "/Checker/GetBillDetails",
+        method: "GET",
+        data: {
         fromDate:    fromDate || null,
         toDate:      toDate || null,
         accountName: accountName
-    }, function (data) {
+        },
+        timeout: 30000,
+        success: function (data) {
         console.log("DATA:", data);
         renderTable(data || []);
-    }).fail(function (err) {
+        },
+        error: function (err) {
         console.log("ERROR:", err);
-        $("#checkerTable").html(`<tr><td colspan="11">Error loading data</td></tr>`);
+        $("#checkerTable").html(`<tr class="empty-row"><td colspan="11" class="text-center text-danger">Error loading bills. Please try again.</td></tr>`);
+        }
     });
 }
 
@@ -160,31 +176,31 @@ function loadData() {
 function renderTable(data) {
 
     if (!data || data.length === 0) {
-        $("#checkerTable").html(`<tr><td colspan="11">No Data Found</td></tr>`);
+        $("#checkerTable").html(`<tr class="empty-row"><td colspan="11" class="text-center">No bills found for the selected filters.</td></tr>`);
         return;
     }
 
     let html    = "";
-    let seenVch = new Set(); // ✅ duplicate fix
+    let seenVch = new Set();
 
     data.forEach(item => {
 
-        if (seenVch.has(item.vchNumber)) return; // ✅ skip duplicate
-        seenVch.add(item.vchNumber);              // ✅ track karo
+        if (seenVch.has(item.vchNumber)) return;
+        seenVch.add(item.vchNumber);
 
         let statusBadge =
             item.checkerStatus === "Approved"
                 ? `<span class="badge bg-success">Approved</span>`
                 : item.checkerStatus === "Rejected"
                 ? `<span class="badge bg-danger">Rejected</span>`
-                : `<span class="badge bg-primary">Pending</span>`;
+                : `<span class="badge bg-warning text-dark">Pending</span>`;
 
         let actionBtn =
             item.checkerStatus === "Approved"
-                ? `<span class="badge bg-success">Approved ✔</span>`
+                ? `<span class="badge bg-success">Approved</span>`
                 : item.checkerStatus === "Rejected"
-                ? `<span class="badge bg-danger">Rejected ❌</span>`
-                : `<div class="d-flex gap-2">
+                ? `<span class="badge bg-danger">Rejected</span>`
+                : `<div class="d-flex gap-2 justify-content-center">
                        <button class="btn btn-success btn-sm approveBtn" data-vch="${item.vchNumber}">Approve</button>
                        <button class="btn btn-danger btn-sm rejectBtn"  data-vch="${item.vchNumber}">Reject</button>
                    </div>`;
@@ -231,10 +247,10 @@ $(document).on("click", ".approveBtn", function () {
         status:    "Approved",
         remark:    remark
     }).done(function () {
-        alert("Approved ✅");
+        alert("Approved");
         loadData();
     }).fail(function () {
-        alert("Error ❌");
+        alert("Error");
     });
 });
 
@@ -252,10 +268,10 @@ $(document).on("click", ".rejectBtn", function () {
         status:    "Rejected",
         remark:    remark
     }).done(function () {
-        alert("Rejected ❌");
+        alert("Rejected");
         loadData();
     }).fail(function () {
-        alert("Error ❌");
+        alert("Error");
     });
 });
 
@@ -312,7 +328,7 @@ $(document).on("click", ".suggest-item", function () {
 // SEARCH BUTTON + INIT
 //------------------------------------
 $(document).ready(function () {
-    console.log("Checker JS Loaded ✔");
+    console.log("Checker JS Loaded");
     $("#searchBtn").click(loadData);
     //loadData();
 });
@@ -385,7 +401,7 @@ let rows = data.map(item => `
                                  </tr>
                              </thead>
                              <tbody>
-                                 ${rows.length ? rows : "<tr><td colspan='5' class='text-center'>No items</td></tr>"}
+                                 ${rows.length ? rows : "<tr><td colspan='6' class='text-center'>No items</td></tr>"}
                              </tbody>
                          </table>
                      </td>
@@ -396,7 +412,7 @@ let rows = data.map(item => `
         })
         .catch(err => {
             clearTimeout(timeout);
-            let msg = err.name === "AbortError" ? "Request timed out ⏱" : "Error loading items ❌";
+            let msg = err.name === "AbortError" ? "Request timed out" : "Error loading items";
             let detailRow = document.getElementById("details-" + vchNumber);
             if (detailRow) detailRow.innerHTML = `<td colspan="11" class="text-danger text-center">${msg}</td>`;
         });

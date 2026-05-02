@@ -56,16 +56,16 @@ a {
     border: 1px solid rgba(255, 193, 7, 0.3);
 }
 </style>
-<div id="pdfContainer" style="display:none; background:#fff; padding:10px; border-radius:8px;">
+<div id="pdfContainer" class="bill-ui" style="display:none; background:#fff; padding:10px; border-radius:8px;">
     <button onclick="closePdf()" class="btn btn-secondary btn-sm mb-2">
-        ⬅ Back
+        Back
     </button>
     <iframe id="pdfFrame" style="width:100%; height:80vh; border:none;"></iframe>
 </div>
 <div class="bill-ui">
 <div class="container-fluid mt-4">
 
-    <h3 class="mb-4">Bill Verification - Invoice  Payment </h3>
+    <h3 class="page-title">Bill Verification - Invoice Payment</h3>
     
 
 
@@ -75,18 +75,18 @@ a {
     <div class="card p-3 mb-3">
         <div class="row">
             <div class="col-md-3">
-                <label>From Date</label>
+                <label for="fromDate">From Date</label>
                 <input type="date" id="fromDate" class="form-control" />
             </div>
 
             <div class="col-md-3">
-                <label>To Date</label>
+                <label for="toDate">To Date</label>
                 <input type="date" id="toDate" class="form-control" />
             </div>
 
             <div class="col-md-4">
-                <label>Account Name</label>
-                <input type="text" id="accountName" class="form-control" placeholder="Search Account" />
+                <label for="accountName">Account Name</label>
+                <input type="text" id="accountName" class="form-control" placeholder="Search Account" autocomplete="off" />
             </div>
 
             <div class="col-md-2 d-flex align-items-end">
@@ -123,8 +123,8 @@ a {
 
                 <!-- BODY -->
                 <tbody id="PaymentTable">
-                    <tr>
-                        <td colspan="9" class="text-center">Loading...</td>
+                    <tr class="empty-row">
+                        <td colspan="12" class="text-center">Select filters and click Search to view approved unpaid bills.</td>
                     </tr>
                 </tbody>
 
@@ -148,16 +148,28 @@ function loadData() {
     let toDate = $("#toDate").val();
     let accountName = $("#accountName").val().trim() || null;
 
-    $("#PaymentTable").html(`<tr><td colspan="12">Loading...</td></tr>`);
+    if (fromDate && toDate && fromDate > toDate) {
+        $("#PaymentTable").html(`<tr class="empty-row"><td colspan="12" class="text-center text-danger">From Date cannot be greater than To Date.</td></tr>`);
+        return;
+    }
 
-    $.get("/InvoicePayment/GetBillDetails", {
-        fromDate: fromDate,
-        toDate: toDate,
-        accountName: accountName
-    }, function (data) {
+    $("#PaymentTable").html(`<tr class="empty-row"><td colspan="12" class="text-center">Loading bills...</td></tr>`);
+
+    $.ajax({
+        url: "/InvoicePayment/GetBillDetails",
+        method: "GET",
+        data: {
+            fromDate: fromDate || null,
+            toDate: toDate || null,
+            accountName: accountName
+        },
+        timeout: 30000,
+        success: function (data) {
         renderTable(data || []);
-    }).fail(function () {
-        $("#PaymentTable").html(`<tr><td colspan="12">Error loading data</td></tr>`);
+        },
+        error: function () {
+        $("#PaymentTable").html(`<tr class="empty-row"><td colspan="12" class="text-center text-danger">Error loading bills. Please try again.</td></tr>`);
+        }
     });
 }
 
@@ -167,19 +179,18 @@ function loadData() {
 function renderTable(data) {
 
     if (!data || data.length === 0) {
-        $("#PaymentTable").html(`<tr><td colspan="12">No Data Found</td></tr>`);
+        $("#PaymentTable").html(`<tr class="empty-row"><td colspan="12" class="text-center">No bills found for the selected filters.</td></tr>`);
         return;
     }
 
     let html = "";
 
-    // ✅ Filter only Approved records
     let approvedData = data.filter(item => 
     item.checkerStatus === "Approved" && 
     item.paymentStatus === "UnPaid"
 );
    if (approvedData.length === 0) {
-    $("#PaymentTable").html(`<tr><td colspan="12">No Approved & Unpaid Records Found</td></tr>`);
+    $("#PaymentTable").html(`<tr class="empty-row"><td colspan="12" class="text-center">No approved unpaid bills found.</td></tr>`);
     return;
 }
 
@@ -191,7 +202,6 @@ function renderTable(data) {
             ? `<span class="badge bg-success">Paid</span>`
             : `<span class="badge bg-warning text-dark">UnPaid</span>`;
 
-        // ✅ Fixed attachment check
      let attachHtml =
     item.attachmentPath
         ? `<a href="#" onclick="openPdf('${item.attachmentPath}')" class="btn btn-sm btn-outline-primary">View</a>`
@@ -221,7 +231,6 @@ function renderTable(data) {
 //------------------------------------
 // DATE FORMAT
 //------------------------------------
-    // ✅ CORRECT
     function formatDate(dateString) {
     if (!dateString || dateString === "-") return "-";
     let d = new Date(dateString);
@@ -232,6 +241,7 @@ function renderTable(data) {
 function openPdf(path) {
     document.getElementById("pdfFrame").src = path;
     document.getElementById("pdfContainer").style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function closePdf() {
@@ -245,7 +255,7 @@ function closePdf() {
 $("#searchBtn").click(loadData);
 
 $(document).ready(function () {
-    loadData();
+    $("#PaymentTable").html(`<tr class="empty-row"><td colspan="12" class="text-center">Select filters and click Search to view approved unpaid bills.</td></tr>`);
 });
 
 

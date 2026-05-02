@@ -111,17 +111,25 @@
     .btn-delete {
         padding: 4px 12px;
         font-size: 12px;
-        border: 1px solid #f09595;
+        border: 1px solid #ff8080;
         border-radius: 6px;
-        background: transparent;
-        color: #842029;
+        background: #fff;
+        color: #b42318;
         cursor: pointer;
+        transition: all 0.2s ease;
     }
-    .btn-delete:hover { background: #f8d7da; }
+
+    .btn-delete:hover {
+        background: #fff1f1;
+        border-color: #dc3545;
+        color: #842029;
+    }
+
     .btn-delete:disabled {
-        opacity: 0.4;
+        opacity: 0.45;
         cursor: not-allowed;
-        pointer-events: none;
+        background: #fff;
+        color: #c98b8b;
     }
 
     .filter-card {
@@ -146,8 +154,6 @@
         margin-left: 10px;
     }
 
-    /* Modal fix for Bootstrap 4 */
-    .modal-backdrop.show { opacity: 0.5; }
 </style>
 
 <div class="bill-ui">
@@ -162,7 +168,7 @@
 
     <button onclick="closePdf()" 
             style="margin-bottom:10px; padding:6px 12px; border:none; background:#002147; color:#fff; border-radius:6px;">
-        ⬅ Back
+        Back
     </button>
 
     <iframe id="pdfFrame" 
@@ -354,36 +360,8 @@
 </div>
 </div>
 
-<!-- DELETE MODAL — Bootstrap 4 style -->
-<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content" style="border-radius:12px;border:none;">
-            <div class="modal-header" style="border-bottom:1px solid #f1f1f1;">
-                <h5 class="modal-title" style="color:#842029;">Delete Attachment</h5>
-                <!--<button type="button" class="close" data-dismiss="modal">-->
-                    <button type="button" class="close" onclick="closeModal()">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body" style="font-size:14px;color:#555;">
-                Are you sure you want to delete this attachment?
-                <br><strong>This action cannot be undone.</strong>
-            </div>
-            <div class="modal-footer" style="border-top:1px solid #f1f1f1;">
-                <!--<button class="btn btn-sm btn-secondary" data-dismiss="modal">Cancel</button>-->
-                <button class="btn btn-sm btn-secondary" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-sm btn-danger" id="confirmDeleteBtn">Yes, Delete</button>
-            </div>
-        </div>
-    </div>
-</div>
-</div>
-
 @* @section scripts {
 <script>
-
-let currentVchNumber = null;
-let currentRow       = null;
 
 // TAB SWITCH
 function switchTab(tab, el) {
@@ -430,13 +408,6 @@ function attachHtml(item) {
     return `<span style="font-size:12px;color:#aaa;">No file</span>`;
 }
 
-// DELETE BUTTON HELPER
-function deleteBtn(item) {
-    if (item.attachment === 'File')
-        return `<button class="btn-delete" onclick="openDelete(${item.vchNumber}, this)">Delete</button>`;
-    return `<button class="btn-delete" disabled>Delete</button>`;
-}
-
 // LOAD SUMMARY
 function loadSummary() {
     $.get('/Admin/GetSummary', function(d) {
@@ -465,7 +436,6 @@ function loadMaker() {
                 <td>${item.makerRemark}</td>
                 <td>${badge(item.makerStatus)}</td>
                 <td>${attachHtml(item)}</td>
-                <td>${deleteBtn(item)}</td>
             </tr>`;
         });
         $('#makerBody').html(html);
@@ -490,7 +460,6 @@ function loadChecker() {
                 <td>${item.checkerRemark}</td>
                 <td>${badge(item.checkerStatus)}</td>
                 <td>${attachHtml(item)}</td>
-                <td>${deleteBtn(item)}</td>
             </tr>`;
         });
         $('#checkerBody').html(html);
@@ -516,47 +485,11 @@ function loadInvoice() {
                 <td>${badge(item.paymentStatus)}</td>
                 <td>${item.paymentDate}</td>
                 <td>${attachHtml(item)}</td>
-                <td>${deleteBtn(item)}</td>
             </tr>`;
         });
         $('#invoiceBody').html(html);
     });
 }
-
-// DELETE OPEN
-window.openDelete = function(vchNumber, btn) {
-    currentVchNumber = vchNumber;
-    currentRow       = btn.closest('tr');
-  document.getElementById('deleteModal').style.display = 'block';
-document.getElementById('deleteModal').classList.add('show');
-
-let backdrop = document.createElement('div');
-backdrop.className = 'modal-backdrop fade show';
-backdrop.id = 'customBackdrop';
-document.body.appendChild(backdrop);
-}
-
-// DELETE CONFIRM
-$('#confirmDeleteBtn').on('click', function() {
-    $.ajax({
-        url:         '/Admin/DeleteAttachment',
-        method:      'POST',
-        contentType: 'application/json',
-        data:        JSON.stringify({ vchNumber: currentVchNumber }),
-        success: function(res) {
-            if (res.success) {
-                const tds = currentRow.querySelectorAll('td');
-                tds[tds.length - 2].innerHTML = '<span style="font-size:12px;color:#aaa;">Deleted</span>';
-                tds[tds.length - 1].innerHTML = '<button class="btn-delete" disabled>Delete</button>';
-               window.jQuery('#deleteModal').modal('hide');
-            }
-        },
-        error: function() {
-            alert('Error deleting. Please try again.');
-            $('#deleteModal').modal('hide');
-        }
-    });
-});
 
 // SEARCH BUTTON
 $('#searchBtn').on('click', function() {
@@ -586,9 +519,6 @@ $(document).ready(function() {
 
                @section scripts {
 <script>
-
-let currentVchNumber = null;
-let currentRow       = null;
 
 // TAB SWITCH
 function switchTab(tab, el) {
@@ -626,21 +556,53 @@ function badge(status) {
     return `<span class="badge-pending">${status}</span>`;
 }
 
-// ATTACHMENT
-//function attachHtml(item) {
-  //  if (item.attachment === 'File' && item.attachmentPath)
-      //  return //`<a href="${item.attachmentPath}" target="_blank" class="btn-view">View</a>`;
-      //  <a href="${item.attachmentPath}">View</a>;
-    //return `<span style="font-size:12px;color:#aaa;">No file</span>`;
-//}
 function attachHtml(item) {
     if (item.attachment === 'File' && item.attachmentPath)
         return `<a href="#" onclick="openPdf('${item.attachmentPath}')" class="btn-view">View</a>`;
     return `<span style="color:#aaa;">No file</span>`;
 }
+
+function deleteBtn(item) {
+    if (item.attachment === 'File')
+        return `<button class="btn-delete" onclick="deleteAttachment(${item.vchNumber}, this)">Delete</button>`;
+    return `<button class="btn-delete" disabled>Delete</button>`;
+}
+
+function deleteAttachment(vchNumber, btn) {
+    const row = btn.closest('tr');
+    btn.disabled = true;
+    btn.textContent = 'Deleting';
+
+    $.ajax({
+        url: '/Admin/DeleteAttachment',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ vchNumber: vchNumber }),
+        timeout: 30000,
+        success: function(res) {
+            if (res && res.success) {
+                const cells = row.querySelectorAll('td');
+                cells[cells.length - 2].innerHTML = '<span style="color:#aaa;">No file</span>';
+                cells[cells.length - 1].innerHTML = '<button class="btn-delete" disabled>Delete</button>';
+                return;
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Delete';
+            alert((res && res.message) || 'Delete failed');
+        },
+        error: function() {
+            btn.disabled = false;
+            btn.textContent = 'Delete';
+            alert('Error deleting attachment');
+        }
+    });
+}
+
 function openPdf(path) {
     document.getElementById("pdfFrame").src = path;
     document.getElementById("pdfContainer").style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function closePdf() {
@@ -648,180 +610,172 @@ function closePdf() {
     document.getElementById("pdfFrame").src = "";
 }
 
-// DELETE BUTTON
-function deleteBtn(item) {
-    if (item.attachment === 'File')
-        return `<button class="btn-delete" onclick="openDelete(${item.vchNumber}, this)">Delete</button>`;
-    return `<button class="btn-delete" disabled>Delete</button>`;
+function setBodyMessage(bodyId, colspan, message, isError) {
+    const cls = isError ? 'text-center text-danger' : 'text-center text-muted';
+    $('#' + bodyId).html(`<tr><td colspan="${colspan}" class="${cls} py-3">${message}</td></tr>`);
 }
 
-// LOAD SUMMARY
 function loadSummary() {
-    $.get('/Admin/GetSummary', function(d) {
-        $('#totalBills').text(d.totalBills ?? 0);
-        $('#pendingMaker').text(d.pendingMaker ?? 0);
-        $('#approvedChecker').text(d.approvedChecker ?? 0);
-        $('#totalPaid').text(d.totalPaid ?? 0);
+    $.ajax({
+        url: '/Admin/GetSummary',
+        method: 'GET',
+        timeout: 30000,
+        success: function(d) {
+            $('#totalBills').text(d.totalBills ?? 0);
+            $('#pendingMaker').text(d.pendingMaker ?? 0);
+            $('#approvedChecker').text(d.approvedChecker ?? 0);
+            $('#totalPaid').text(d.totalPaid ?? 0);
+        },
+        error: function() {
+            $('#totalBills, #pendingMaker, #approvedChecker, #totalPaid').text('0');
+        }
     });
 }
 
-// LOAD MAKER
+function loadAdminTable(config) {
+    setBodyMessage(config.bodyId, config.colspan, 'Loading...', false);
+
+    $.ajax({
+        url: config.url,
+        method: 'GET',
+        data: getFilters(),
+        timeout: 30000,
+        success: function(data) {
+            if (!data || !data.length) {
+                setBodyMessage(config.bodyId, config.colspan, 'No records found', false);
+                return;
+            }
+
+            let html = '';
+            data.forEach(item => { html += config.row(item); });
+            $('#' + config.bodyId).html(html || `<tr><td colspan="${config.colspan}" class="text-center text-muted py-3">No records found</td></tr>`);
+        },
+        error: function() {
+            setBodyMessage(config.bodyId, config.colspan, 'Error loading data. Please try again.', true);
+        }
+    });
+}
+
 function loadMaker() {
-    $('#makerBody').html('<tr><td colspan="8">Loading...</td></tr>');
-    $.get('/Admin/GetMakerActivity', getFilters(), function(data) {
-        let html = '';
-        data.forEach(item => {
-            html += `<tr>
-                <td>${item.accountName}</td>
-                <td>${item.vchNumber}</td>
-                <td>${item.voucherDate}</td>
-                <td>${item.billAmount}</td>
-                <td>${item.makerRemark}</td>
+    loadAdminTable({
+        bodyId: 'makerBody',
+        colspan: 8,
+        url: '/Admin/GetMakerActivity',
+        row: function(item) {
+            return `<tr>
+                <td>${item.accountName ?? ''}</td>
+                <td>${item.vchNumber ?? ''}</td>
+                <td>${item.voucherDate ?? '-'}</td>
+                <td>${item.billAmount ?? '-'}</td>
+                <td>${item.makerRemark ?? '-'}</td>
                 <td>${badge(item.makerStatus)}</td>
                 <td>${attachHtml(item)}</td>
                 <td>${deleteBtn(item)}</td>
             </tr>`;
-        });
-        $('#makerBody').html(html);
+        }
     });
 }
 
-// LOAD CHECKER
 function loadChecker() {
-    $('#checkerBody').html('<tr><td colspan="8">Loading...</td></tr>');
-    $.get('/Admin/GetCheckerActivity', getFilters(), function(data) {
-        let html = '';
-        data.forEach(item => {
-            html += `<tr>
-                <td>${item.accountName}</td>
-                <td>${item.vchNumber}</td>
-                <td>${item.voucherDate}</td>
-                <td>${item.billAmount}</td>
-                <td>${item.checkerRemark}</td>
+    loadAdminTable({
+        bodyId: 'checkerBody',
+        colspan: 8,
+        url: '/Admin/GetCheckerActivity',
+        row: function(item) {
+            return `<tr>
+                <td>${item.accountName ?? ''}</td>
+                <td>${item.vchNumber ?? ''}</td>
+                <td>${item.voucherDate ?? '-'}</td>
+                <td>${item.billAmount ?? '-'}</td>
+                <td>${item.checkerRemark ?? '-'}</td>
                 <td>${badge(item.checkerStatus)}</td>
                 <td>${attachHtml(item)}</td>
                 <td>${deleteBtn(item)}</td>
             </tr>`;
-        });
-        $('#checkerBody').html(html);
+        }
     });
 }
 
-// LOAD INVOICE
 function loadInvoice() {
-    $('#invoiceBody').html('<tr><td colspan="9">Loading...</td></tr>');
-    $.get('/Admin/GetInvoiceActivity', getFilters(), function(data) {
-        let html = '';
-        data.forEach(item => {
-            html += `<tr>
-                <td>${item.accountName}</td>
-                <td>${item.vchNumber}</td>
-                <td>${item.voucherDate}</td>
-                <td>${item.billAmount}</td>
-                <td>${item.dueDate}</td>
+    loadAdminTable({
+        bodyId: 'invoiceBody',
+        colspan: 9,
+        url: '/Admin/GetInvoiceActivity',
+        row: function(item) {
+            return `<tr>
+                <td>${item.accountName ?? ''}</td>
+                <td>${item.vchNumber ?? ''}</td>
+                <td>${item.voucherDate ?? '-'}</td>
+                <td>${item.billAmount ?? '-'}</td>
+                <td>${item.dueDate ?? '-'}</td>
                 <td>${badge(item.paymentStatus)}</td>
-                <td>${item.paymentDate}</td>
+                <td>${item.paymentDate ?? '-'}</td>
                 <td>${attachHtml(item)}</td>
                 <td>${deleteBtn(item)}</td>
             </tr>`;
-        });
-        $('#invoiceBody').html(html);
+        }
     });
 }
-// LOAD PAYMENT CHECKER//
 
 function loadPaymentChecker() {
-    $('#paymentBody').html('<tr><td colspan="8">Loading...</td></tr>');
-
-    $.get('/Admin/GetPaymentCheckerActivity', getFilters(), function(data) {
-
-        if (!data || !data.length) {
-            $('#paymentBody').html('<tr><td colspan="8" class="text-center text-muted">No records</td></tr>');
-            return;
-        }
-
-        let html = '';
-        data.forEach(item => {
-            html += `<tr>
-                 <td>${item.accountName}</td>
-                <td>${item.vchNumber}</td>
-                <td>${item.voucherDate}</td>   <!-- ✅ FIX -->
-                <td>${item.billAmount}</td>    <!-- ✅ FIX -->
-                <td>${badge(item.paymentStatus)}</td> <!-- ✅ FIX -->
-                <td>${item.checkerRemark ?? '-'}</td> <!-- ✅ FIX -->
+    loadAdminTable({
+        bodyId: 'paymentBody',
+        colspan: 8,
+        url: '/Admin/GetPaymentCheckerActivity',
+        row: function(item) {
+            return `<tr>
+                <td>${item.accountName ?? ''}</td>
+                <td>${item.vchNumber ?? ''}</td>
+                <td>${item.voucherDate ?? '-'}</td>
+                <td>${item.billAmount ?? '-'}</td>
+                <td>${badge(item.paymentStatus)}</td>
+                <td>${item.checkerRemark ?? '-'}</td>
                 <td>${attachHtml(item)}</td>
                 <td>${deleteBtn(item)}</td>
             </tr>`;
-        });
-
-        $('#paymentBody').html(html);
-    });
-}
-
-// OPEN MODAL
-window.openDelete = function(vchNumber, btn) {
-    currentVchNumber = vchNumber;
-    currentRow = btn.closest('tr');
-
-    document.getElementById('deleteModal').style.display = 'block';
-    document.getElementById('deleteModal').classList.add('show');
-
-    let backdrop = document.createElement('div');
-    backdrop.className = 'modal-backdrop fade show';
-    backdrop.id = 'customBackdrop';
-    document.body.appendChild(backdrop);
-}
-
-// CLOSE MODAL
-function closeModal() {
-    document.getElementById('deleteModal').style.display = 'none';
-    document.getElementById('deleteModal').classList.remove('show');
-
-    let backdrop = document.getElementById('customBackdrop');
-    if (backdrop) backdrop.remove();
-}
-
-// DELETE CONFIRM
-$('#confirmDeleteBtn').on('click', function() {
-    $.ajax({
-        url: '/Admin/DeleteAttachment',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({ vchNumber: currentVchNumber }),
-        success: function(res) {
-            if (res.success) {
-
-                // update UI
-                const tds = currentRow.querySelectorAll('td');
-                tds[tds.length - 2].innerHTML = '<span style="color:#aaa;">Deleted</span>';
-                tds[tds.length - 1].innerHTML = '<button disabled>Delete</button>';
-
-                closeModal(); // ✅ FIXED
-            }
-        },
-        error: function() {
-            alert('Error deleting');
-            closeModal(); // ✅ FIXED
         }
     });
-});
+}
 
-// SEARCH
-$('#searchBtn').on('click', function() {
+function validateFilters() {
+    const fromDate = $('#fromDate').val();
+    const toDate = $('#toDate').val();
+
+    if (fromDate && toDate && fromDate > toDate) {
+        setBodyMessage('makerBody', 8, 'From Date cannot be greater than To Date.', true);
+        setBodyMessage('checkerBody', 8, 'From Date cannot be greater than To Date.', true);
+        setBodyMessage('invoiceBody', 9, 'From Date cannot be greater than To Date.', true);
+        setBodyMessage('paymentBody', 8, 'From Date cannot be greater than To Date.', true);
+        return false;
+    }
+
+    return true;
+}
+
+function loadAllAdminData() {
+    if (!validateFilters()) return;
     loadSummary();
     loadMaker();
     loadChecker();
     loadInvoice();
     loadPaymentChecker();
+}
+
+// SEARCH
+$('#searchBtn').on('click', function() {
+    loadAllAdminData();
 });
 
 // INIT
 $(document).ready(function() {
-    loadSummary();
-    loadMaker();
-    loadChecker();
-    loadInvoice();
-    loadPaymentChecker();
+    const today = new Date().toISOString().split('T')[0];
+    const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+        .toISOString().split('T')[0];
+
+    $('#fromDate').val(firstOfMonth);
+    $('#toDate').val(today);
+
+    loadAllAdminData();
 });
 
 </script>

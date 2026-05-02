@@ -23,16 +23,16 @@ Layout = "~/Views/Shared/_Layout.cshtml";
             background-color: #f1f1f1;
         }
 </style>
-<div id="pdfContainer" style="display:none; background:#fff; padding:10px; border-radius:8px;">
+<div id="pdfContainer" class="bill-ui" style="display:none; background:#fff; padding:10px; border-radius:8px;">
     <button onclick="closePdf()" class="btn btn-secondary btn-sm mb-2">
-        ⬅ Back
+        Back
     </button>
     <iframe id="pdfFrame" style="width:100%; height:80vh; border:none;"></iframe>
 </div>
 <div class="bill-ui">
     <div class="container-fluid mt-4">
 
-        <h3 class="mb-4">Bill Verification - Maker</h3>
+        <h3 class="page-title">Bill Verification - Maker</h3>
 
         <div class="card p-3 shadow-sm">
 
@@ -40,18 +40,18 @@ Layout = "~/Views/Shared/_Layout.cshtml";
             <div class="row">
 
                 <div class="col-md-3">
-                    <label>From Date</label>
+                    <label for="fromDate">From Date</label>
                     <input type="date" id="fromDate" class="form-control">
                 </div>
 
                 <div class="col-md-3">
-                    <label>To Date</label>
+                    <label for="toDate">To Date</label>
                     <input type="date" id="toDate" class="form-control">
                 </div>
 
             
                 <div class="col-md-3 position-relative">
-                    <label>Account Name</label>
+                    <label for="accountName">Account Name</label>
 
                     <input type="text"
                            id="accountName"
@@ -60,7 +60,7 @@ Layout = "~/Views/Shared/_Layout.cshtml";
                            autocomplete="off">
 
                  
-                    <div id="suggestionBox" class="list-group"></div>
+                    <div id="suggestionBox" class="suggestion-box"></div>
                 </div>
 
                 <div class="col-md-2 d-flex align-items-end">
@@ -109,7 +109,11 @@ Layout = "~/Views/Shared/_Layout.cshtml";
                         </thead>
 
                     
-                        <tbody id="billTable"></tbody>
+                        <tbody id="billTable">
+                            <tr class="empty-row">
+                                <td colspan="16" class="text-center">Select date range and click Search to view bills.</td>
+                            </tr>
+                        </tbody>
 
                     </table>
 
@@ -138,11 +142,6 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     $("#suggestionBox").empty();
     return;
     }
-    $(document).on("mousedown", ".suggest-item", function (e) {
-    e.preventDefault();
-    $("#accountName").val($(this).text().trim());
-    $("#suggestionBox").empty();
-    });
 
     $.get("/Maker/GetAccountSuggestions",
     { term: searchText },
@@ -162,6 +161,14 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     });
     });
 
+    $(document).on("mousedown", ".suggest-item", function (e) {
+    e.preventDefault();
+    let text = $(this).text().trim();
+    if (text === "No result") return;
+    $("#accountName").val(text);
+    $("#suggestionBox").empty();
+    });
+
     });
 
 
@@ -173,28 +180,32 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     let accountName = $("#accountName").val().trim() || null;
 
     if (!fromDate || !toDate) {
-    alert("Select both dates");
+    $("#billTable").html(`<tr class="empty-row"><td colspan="16" class="text-center text-danger">Please select both dates.</td></tr>`);
     return;
     }
 
     if (fromDate > toDate) {
-    alert("From Date cannot be greater than To Date");
+    $("#billTable").html(`<tr class="empty-row"><td colspan="16" class="text-center text-danger">From Date cannot be greater than To Date.</td></tr>`);
     return;
     }
 
     console.log("Calling API...");
 
-    $("#billTable").html(`<tr><td colspan="16">Loading...</td></tr>`);
+    $("#billTable").html(`<tr class="empty-row"><td colspan="16" class="text-center">Loading bills...</td></tr>`);
 
-    $.get("/Maker/GetBillDetails",
-    { fromDate, toDate, accountName },
-    function (data) {
+    $.ajax({
+    url: "/Maker/GetBillDetails",
+    method: "GET",
+    data: { fromDate, toDate, accountName },
+    timeout: 30000,
+    success: function (data) {
     console.log("API DATA:", data);
     renderTable(data || []);
-    }
-    ).fail(function (err) {
+    },
+    error: function (err) {
     console.log("ERROR:", err);
-    $("#billTable").html(`<tr><td colspan="16">Error loading data</td></tr>`);
+    $("#billTable").html(`<tr class="empty-row"><td colspan="16" class="text-center text-danger">Error loading bills. Please try again.</td></tr>`);
+    }
     });
     }
 
@@ -203,7 +214,7 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     function renderTable(data) {
 
     if (!data || data.length === 0) {
-    $("#billTable").html(`<tr><td colspan="16">No Data Found</td></tr>`);
+    $("#billTable").html(`<tr class="empty-row"><td colspan="16" class="text-center">No bills found for the selected filters.</td></tr>`);
     return;
     }
 
@@ -215,7 +226,6 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     if (seenVch.has(item.vchNumber)) return;
     seenVch.add(item.vchNumber);
 
-    // ✅ Rename variable to avoid conflict
     let checkerStatusValue = item.checkerStatus || "Pending";
 
     let statusBadge =
@@ -232,8 +242,8 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     <td>${formatDate(item.voucherDate)}</td>
     <td>${item.billAmount || ""}</td>
     <td>${item.supplierRef || '-'}</td>
-    <td>${item.supplierRefDate || '-'}</td>
-    <td>${item.dueDate || '-'}</td>
+    <td>${formatDate(item.supplierRefDate)}</td>
+    <td>${formatDate(item.dueDate)}</td>
     <td>
     ${item.attachmentPath
     ?  `<a href="#" onclick="openPdf('${item.attachmentPath}')" class="btn btn-sm btn-outline-primary">View</a>`
@@ -272,8 +282,9 @@ Layout = "~/Views/Shared/_Layout.cshtml";
 
     // ---------------- FORMAT DATE ----------------
     function formatDate(dateString) {
-    if (!dateString) return "";
+    if (!dateString || dateString === "-") return "-";
     let d = new Date(dateString);
+    if (isNaN(d)) return "-";
     return d.toISOString().split('T')[0];
     }
 
@@ -281,6 +292,7 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     function openPdf(path) {
     document.getElementById("pdfFrame").src = path;
     document.getElementById("pdfContainer").style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function closePdf() {
@@ -316,14 +328,14 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     processData: false,
     success: function (res) {
     if (res.success) {
-    alert("✅ Uploaded Successfully");
+    alert("Uploaded Successfully");
     loadData();
     } else {
-    alert("❌ Upload failed");
+    alert(res.message || "Upload failed");
     }
     },
     error: function () {
-    alert("❌ Error occurred");
+    alert("Error occurred");
     }
     });
     });

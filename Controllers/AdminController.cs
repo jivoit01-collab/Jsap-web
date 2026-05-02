@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace JSAPNEW.Controllers
 {
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
     public class AdminController : Controller
     {
         private readonly IConfiguration _config;
@@ -92,6 +92,9 @@ WHERE A.VoucherDate >= @StartDate
         // ✅ Shared method — used by all 3 tabs
         private List<object> FetchBillDetails(string accountName, string fromDate, string toDate)
         {
+            DateTime? parsedFromDate = DateTime.TryParse(fromDate, out var fromValue) ? fromValue : null;
+            DateTime? parsedToDate = DateTime.TryParse(toDate, out var toValue) ? toValue : null;
+
             using var conn = new SqlConnection(_connStr);
             conn.Open();
 
@@ -101,9 +104,9 @@ WHERE A.VoucherDate >= @StartDate
             cmd.Parameters.AddWithValue("@AccountName",
                 string.IsNullOrEmpty(accountName) ? DBNull.Value : (object)accountName);
             cmd.Parameters.AddWithValue("@FromDate",
-                string.IsNullOrEmpty(fromDate) ? DBNull.Value : (object)DateTime.Parse(fromDate));
+                parsedFromDate.HasValue ? (object)parsedFromDate.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@ToDate",
-                string.IsNullOrEmpty(toDate) ? DBNull.Value : (object)DateTime.Parse(toDate));
+                parsedToDate.HasValue ? (object)parsedToDate.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@SerialNumber", DBNull.Value);
 
             var reader = cmd.ExecuteReader();
@@ -162,8 +165,8 @@ WHERE A.VoucherDate >= @StartDate
         [HttpGet]
         public IActionResult GetPaymentCheckerActivity(string accountName, string fromDate, string toDate)
         {
-            DateTime? from = string.IsNullOrEmpty(fromDate) ? null : DateTime.Parse(fromDate);
-            DateTime? to = string.IsNullOrEmpty(toDate) ? null : DateTime.Parse(toDate);
+            DateTime? from = DateTime.TryParse(fromDate, out var fromValue) ? fromValue : null;
+            DateTime? to = DateTime.TryParse(toDate, out var toValue) ? toValue : null;
 
             var data = _paymentService.GetPaidBillDetails(from, to, accountName);
 
@@ -171,6 +174,7 @@ WHERE A.VoucherDate >= @StartDate
         }
         // ✅ Delete Attachment — Admin Only
         [HttpPost]
+        [Authorize(Policy = "AdminOnly")]
         public IActionResult DeleteAttachment([FromBody] DeleteRequest req)
         {
       var userId = HttpContext.Session.GetInt32("UserId");

@@ -80,15 +80,15 @@
 </style>
 
 <!-- PDF VIEWER -->
-<div id="pdfContainer" style="display:none; background:#fff; padding:10px; border-radius:8px;">
-    <button onclick="closePdf()" class="btn btn-secondary btn-sm mb-2">⬅ Back</button>
+<div id="pdfContainer" class="bill-ui" style="display:none; background:#fff; padding:10px; border-radius:8px;">
+    <button onclick="closePdf()" class="btn btn-secondary btn-sm mb-2">Back</button>
     <iframe id="pdfFrame" style="width:100%; height:80vh; border:none;"></iframe>
 </div>
 
 <div class="bill-ui">
     <div class="container-fluid mt-4">
 
-        <h3 class="mb-4">Bill Verification - Payment Checker</h3>
+        <h3 class="page-title">Bill Verification - Payment Checker</h3>
 
         <!-- SUMMARY CARDS -->
         <div class="row mb-4">
@@ -96,7 +96,7 @@
             <div class="col-md-3 mb-2">
                 <div class="card summary-card">
                     <div class="card-body d-flex align-items-center gap-3">
-                        <div style="font-size:2rem;">🧾</div>
+                        <div class="summary-icon"><i class="fa-solid fa-file-invoice"></i></div>
                         <div>
                             <div class="summary-number" id="cardTotalCount">—</div>
                             <p class="summary-label">Total Paid Invoices</p>
@@ -108,7 +108,7 @@
             <div class="col-md-3 mb-2">
                 <div class="card summary-card">
                     <div class="card-body d-flex align-items-center gap-3">
-                        <div style="font-size:2rem;">💰</div>
+                        <div class="summary-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
                         <div>
                             <div class="summary-number" id="cardTotalAmount">—</div>
                             <p class="summary-label">Total Paid Amount</p>
@@ -120,7 +120,7 @@
             <div class="col-md-3 mb-2">
                 <div class="card summary-card">
                     <div class="card-body d-flex align-items-center gap-3">
-                        <div style="font-size:2rem;">📅</div>
+                        <div class="summary-icon"><i class="fa-solid fa-calendar-day"></i></div>
                         <div>
                             <div class="summary-number" id="cardLatestDate" style="font-size:1rem; padding-top:4px;">—</div>
                             <p class="summary-label">Latest Payment Date</p>
@@ -132,7 +132,7 @@
             <div class="col-md-3 mb-2">
                 <div class="card summary-card">
                     <div class="card-body d-flex align-items-center gap-3">
-                        <div style="font-size:2rem;">🏢</div>
+                        <div class="summary-icon"><i class="fa-solid fa-building"></i></div>
                         <div>
                             <div class="summary-number" id="cardUniqueAccounts">—</div>
                             <p class="summary-label">Unique Accounts</p>
@@ -148,20 +148,20 @@
             <div class="row">
 
                 <div class="col-md-3">
-                    <label>From Date</label>
+                    <label for="fromDate">From Date</label>
                     <input type="date" id="fromDate" class="form-control" />
                 </div>
 
                 <div class="col-md-3">
-                    <label>To Date</label>
+                    <label for="toDate">To Date</label>
                     <input type="date" id="toDate" class="form-control" />
                 </div>
 
                 <div class="col-md-3 position-relative">
-                    <label>Account Name</label>
+                    <label for="accountName">Account Name</label>
                     <input type="text" id="accountName" class="form-control"
                            placeholder="Search Account" autocomplete="off" />
-                    <div id="suggestionBox" class="list-group"></div>
+                    <div id="suggestionBox" class="suggestion-box"></div>
                 </div>
 
                 <div class="col-md-2 d-flex align-items-end">
@@ -184,7 +184,7 @@
                     <table class="table table-bordered table-striped">
 
                         <thead class="table-light">
-                            <tr>
+                            <tr class="empty-row">
                                 <th>Account</th>
                                 <th>Voucher</th>
                                 <th>Date</th>
@@ -231,26 +231,35 @@
     let accountName = $("#accountName").val().trim() || null;
 
     if (!fromDate || !toDate) {
-    alert("Please select both dates");
+    $("#paymentCheckerTable").html(`<tr class="empty-row"><td colspan="13" class="text-center text-danger">Please select both dates.</td></tr>`);
+    resetCards();
     return;
     }
 
     if (fromDate > toDate) {
-    alert("From Date cannot be greater than To Date");
+    $("#paymentCheckerTable").html(`<tr class="empty-row"><td colspan="13" class="text-center text-danger">From Date cannot be greater than To Date.</td></tr>`);
+    resetCards();
     return;
     }
 
-    $("#paymentCheckerTable").html(`<tr><td colspan="13" class="text-center">Loading...</td></tr>`);
+    $("#paymentCheckerTable").html(`<tr class="empty-row"><td colspan="13" class="text-center">Loading paid invoices...</td></tr>`);
     resetCards();
 
-    $.get("/PaymentChecker/GetPaidBillDetails", {
+    $.ajax({
+    url: "/PaymentChecker/GetPaidBillDetails",
+    method: "GET",
+    data: {
     fromDate:    fromDate,
     toDate:      toDate,
     accountName: accountName
-    }, function (data) {
+    },
+    timeout: 30000,
+    success: function (data) {
     renderTable(data || []);
-    }).fail(function () {
-    $("#paymentCheckerTable").html(`<tr><td colspan="13" class="text-center text-danger">Error loading data</td></tr>`);
+    },
+    error: function () {
+    $("#paymentCheckerTable").html(`<tr class="empty-row"><td colspan="13" class="text-center text-danger">Error loading paid invoices. Please try again.</td></tr>`);
+    }
     });
     }
 
@@ -261,14 +270,13 @@
     function renderTable(data) {
 
     if (!data || data.length === 0) {
-    $("#paymentCheckerTable").html(`<tr><td colspan="13" class="text-center">No Paid Invoices Found</td></tr>`);
+    $("#paymentCheckerTable").html(`<tr class="empty-row"><td colspan="13" class="text-center">No paid invoices found for the selected filters.</td></tr>`);
     updateCards([]);
     $("#recordBadge").text("");
     return;
     }
 
     updateCards(data);
-    $("#recordBadge").text(data.length + " records");
 
     let html    = "";
     let seenVch = new Set();
@@ -300,10 +308,11 @@
     <td>${item.makerRemark  || "-"}</td>
     <td>${item.checkerRemark || "-"}</td>
     <td><span class="soft-badge badge-approved">Approved</span></td>
-    <td><span class="soft-badge badge-paid">Paid ✔</span></td>
+    <td><span class="soft-badge badge-paid">Paid</span></td>
     </tr>`;
     });
 
+    $("#recordBadge").text(seenVch.size + " records");
     $("#paymentCheckerTable").html(html);
     }
 
@@ -409,7 +418,7 @@
     })
     .catch(err => {
     clearTimeout(timeout);
-    let msg = err.name === "AbortError" ? "Request timed out ⏱" : "Error loading items ❌";
+    let msg = err.name === "AbortError" ? "Request timed out" : "Error loading items";
     let dr  = document.getElementById("details-" + vchNumber);
     if (dr) dr.innerHTML = `<td colspan="13" class="text-danger text-center">${msg}</td>`;
     });
@@ -465,7 +474,6 @@
     });
 
 
-    // ✅ CORRECT
     function formatDate(dateString) {
     if (!dateString || dateString === "-") return "-";
     let d = new Date(dateString);

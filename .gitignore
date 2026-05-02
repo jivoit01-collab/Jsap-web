@@ -331,7 +331,10 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
-
+.build-output/
+.dotnet-home/
+.claude/
+.vs/
 # OpenCover UI analysis results
 OpenCover/
 

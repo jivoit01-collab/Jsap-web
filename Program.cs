@@ -17,6 +17,10 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
 var authenticatedPolicy = new AuthorizationPolicyBuilder("SmartAuth")
     .RequireAuthenticatedUser()
     .Build();

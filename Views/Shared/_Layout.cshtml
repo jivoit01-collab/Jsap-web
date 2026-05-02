@@ -171,6 +171,34 @@
                 transform: translateY(-1px);
             }
 
+        .logout-btn {
+            border: 1px solid #ef4444;
+            background: #fff;
+            color: #dc2626;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 800;
+            padding: 8px 14px;
+            min-height: 36px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.06);
+        }
+
+            .logout-btn:hover {
+                background: #dc2626;
+                color: #fff;
+                border-color: #dc2626;
+                box-shadow: 0 8px 18px rgba(220, 38, 38, 0.22);
+                transform: translateY(-1px);
+            }
+
+            .logout-btn i {
+                font-size: 13px;
+            }
+
         /* ============================================
                                                            HAMBURGER MENU BUTTON
                                                            ============================================ */
@@ -517,6 +545,396 @@
             border-radius: 8px;
         }
 
+        /* ============================================
+                                                           BILL VERIFICATION UI
+                                                           ============================================ */
+        .bill-ui {
+            color: #0f172a;
+        }
+
+            .bill-ui .container-fluid {
+                padding-left: 0;
+                padding-right: 0;
+            }
+
+            .bill-ui .page-title,
+            .bill-ui h3 {
+                color: var(--primary-color);
+                font-size: 24px;
+                font-weight: 800;
+                margin-bottom: 18px !important;
+                letter-spacing: 0;
+            }
+
+            .bill-ui .card {
+                background: #fff;
+                border: 1px solid #dfe7ef;
+                border-radius: 8px;
+                box-shadow: 0 10px 28px rgba(11, 44, 77, 0.08);
+                overflow: visible;
+            }
+
+            .bill-ui .card + .card {
+                margin-top: 22px !important;
+            }
+
+            .bill-ui .card.p-3 {
+                padding: 18px !important;
+            }
+
+            .bill-ui .card-header {
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 11px 16px;
+                border-bottom: 0;
+                border-radius: 8px 8px 0 0 !important;
+                font-size: 15px;
+                line-height: 1.35;
+            }
+
+            .bill-ui .card-body {
+                padding: 16px;
+            }
+
+            .bill-ui .row {
+                display: grid;
+                grid-template-columns: repeat(12, minmax(0, 1fr));
+                gap: 14px;
+                margin-left: 0;
+                margin-right: 0;
+                align-items: end;
+            }
+
+            .bill-ui .col-md-2,
+            .bill-ui .col-md-3,
+            .bill-ui .col-md-4 {
+                width: auto;
+                max-width: none;
+                padding-left: 0;
+                padding-right: 0;
+            }
+
+            .bill-ui .col-md-2 {
+                grid-column: span 2;
+            }
+
+            .bill-ui .col-md-3 {
+                grid-column: span 3;
+            }
+
+            .bill-ui .col-md-4 {
+                grid-column: span 4;
+            }
+
+            .bill-ui label {
+                display: block;
+                color: #334155;
+                font-size: 13px;
+                font-weight: 700;
+                margin-bottom: 6px;
+            }
+
+            .bill-ui .form-control,
+            .bill-ui input[type="date"],
+            .bill-ui input[type="text"],
+            .bill-ui input[type="file"],
+            .bill-ui select {
+                width: 100%;
+                min-height: 38px;
+                border: 1px solid #cbd5e1;
+                border-radius: 7px;
+                background: #fff;
+                color: #0f172a;
+                padding: 8px 10px;
+                font-size: 14px;
+                line-height: 1.4;
+                box-shadow: none;
+                transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            }
+
+            .bill-ui .form-control:focus,
+            .bill-ui input:focus,
+            .bill-ui select:focus {
+                border-color: #2563eb;
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+            }
+
+            .bill-ui .btn {
+                min-height: 36px;
+                border: 1px solid transparent;
+                border-radius: 7px;
+                padding: 8px 14px;
+                font-size: 14px;
+                font-weight: 700;
+                line-height: 1.2;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 7px;
+                text-decoration: none;
+                transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+            }
+
+            .bill-ui .btn:hover {
+                transform: translateY(-1px);
+                text-decoration: none;
+            }
+
+            .bill-ui .btn-primary {
+                background: #0b2c4d;
+                border-color: #0b2c4d;
+                color: #fff;
+                box-shadow: 0 8px 18px rgba(11, 44, 77, 0.18);
+            }
+
+            .bill-ui .btn-success {
+                background: #15803d;
+                border-color: #15803d;
+                color: #fff;
+            }
+
+            .bill-ui .btn-danger {
+                background: #dc2626;
+                border-color: #dc2626;
+                color: #fff;
+            }
+
+            .bill-ui .btn-secondary {
+                background: #475569;
+                border-color: #475569;
+                color: #fff;
+            }
+
+            .bill-ui .btn-outline-primary {
+                background: #fff;
+                border-color: #2563eb;
+                color: #1d4ed8;
+            }
+
+            .bill-ui .btn-sm {
+                min-height: 30px;
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            .bill-ui .w-100 {
+                width: 100%;
+            }
+
+            .bill-ui .d-flex {
+                display: flex;
+            }
+
+            .bill-ui .gap-2 {
+                gap: 8px;
+            }
+
+            .bill-ui .gap-3 {
+                gap: 12px;
+            }
+
+            .bill-ui .align-items-end {
+                align-items: flex-end;
+            }
+
+            .bill-ui .align-items-center {
+                align-items: center;
+            }
+
+            .bill-ui .justify-content-between {
+                justify-content: space-between;
+            }
+
+            .bill-ui .table-responsive {
+                width: 100%;
+                overflow-x: auto;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+            }
+
+            .bill-ui table {
+                width: 100%;
+                min-width: 1060px;
+                margin-bottom: 0;
+                border-collapse: collapse;
+                background: #fff;
+                table-layout: auto;
+            }
+
+            .bill-ui th,
+            .bill-ui td {
+                padding: 11px 12px;
+                border-bottom: 1px solid #e2e8f0;
+                border-right: 1px solid #eef2f7;
+                text-align: left;
+                vertical-align: middle !important;
+                white-space: nowrap;
+                font-size: 13px;
+            }
+
+            .bill-ui th:last-child,
+            .bill-ui td:last-child {
+                border-right: 0;
+            }
+
+            .bill-ui thead th {
+                background: #f8fafc;
+                color: #0b2c4d;
+                font-size: 12px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0;
+            }
+
+            .bill-ui tbody tr:hover td {
+                background: #f8fbff;
+            }
+
+            .bill-ui .badge,
+            .bill-ui .soft-badge {
+                border-radius: 999px;
+                padding: 6px 10px;
+                font-size: 12px;
+                font-weight: 800;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 72px;
+            }
+
+            .bill-ui .bg-success,
+            .bill-ui .badge-success {
+                background: #dcfce7 !important;
+                color: #166534 !important;
+                border: 1px solid #bbf7d0;
+            }
+
+            .bill-ui .bg-danger,
+            .bill-ui .badge-danger {
+                background: #fee2e2 !important;
+                color: #991b1b !important;
+                border: 1px solid #fecaca;
+            }
+
+            .bill-ui .bg-primary,
+            .bill-ui .badge-primary,
+            .bill-ui .badge-pending {
+                background: #dbeafe !important;
+                color: #1e40af !important;
+                border: 1px solid #bfdbfe;
+            }
+
+            .bill-ui .bg-warning {
+                background: #fef3c7 !important;
+                color: #92400e !important;
+                border: 1px solid #fde68a;
+            }
+
+            .bill-ui .text-center {
+                text-align: center !important;
+            }
+
+            .bill-ui .text-muted {
+                color: #64748b !important;
+            }
+
+            .bill-ui .text-danger {
+                color: #b91c1c !important;
+            }
+
+            .bill-ui .text-success {
+                color: #166534 !important;
+            }
+
+            .bill-ui .bg-white {
+                background: #fff !important;
+            }
+
+            .bill-ui .fw-bold {
+                font-weight: 800 !important;
+            }
+
+            .bill-ui h5 {
+                color: var(--primary-color);
+                font-size: 17px;
+                font-weight: 800;
+                margin-bottom: 14px !important;
+            }
+
+            .bill-ui .summary-card {
+                height: 100%;
+                border-radius: 8px;
+            }
+
+            .bill-ui .summary-number {
+                color: #0b2c4d;
+                letter-spacing: 0;
+            }
+
+            .bill-ui .summary-icon {
+                width: 42px;
+                height: 42px;
+                border-radius: 8px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: #e0f2fe;
+                color: #075985;
+                font-size: 19px;
+                flex: 0 0 auto;
+            }
+
+            .bill-ui a {
+                color: #1d4ed8;
+                font-weight: 700;
+            }
+
+            .bill-ui .position-relative {
+                position: relative;
+            }
+
+            .bill-ui .suggestion-box,
+            .bill-ui #suggestionBox {
+                position: absolute;
+                top: calc(100% + 4px);
+                left: 0;
+                width: 100%;
+                max-height: 220px;
+                overflow-y: auto;
+                background: #fff;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                box-shadow: 0 16px 38px rgba(15, 23, 42, 0.16);
+                z-index: 1100;
+            }
+
+            .bill-ui .suggest-item {
+                padding: 9px 11px;
+                cursor: pointer;
+                font-size: 13px;
+                color: #0f172a;
+            }
+
+            .bill-ui .suggest-item:hover {
+                background: #eff6ff;
+            }
+
+            .bill-ui .details-row td,
+            .bill-ui tr[id^='details-'] > td {
+                background: #f8fafc !important;
+                padding: 14px !important;
+            }
+
+            .bill-ui .empty-row td {
+                padding: 28px 12px;
+                color: #64748b;
+                font-weight: 700;
+            }
+
         .btn-outline-danger {
             border-width: 2px;
             font-weight: 600;
@@ -731,6 +1149,11 @@
                 font-size: 12px;
             }
 
+            .logout-btn {
+                padding: 7px 10px;
+                font-size: 12px;
+            }
+
             .main-body {
                 padding: 15px;
             }
@@ -742,8 +1165,23 @@
 
         @@media (max-width: 768px) {
 
+            .bill-ui .row {
+                grid-template-columns: 1fr;
+            }
+
+            .bill-ui .col-md-2,
+            .bill-ui .col-md-3,
+            .bill-ui .col-md-4 {
+                grid-column: span 1;
+            }
+
+            .bill-ui .card-body {
+                padding: 12px;
+            }
+
             .bill-ui table {
                 font-size: 12px;
+                min-width: 900px;
             }
 
             .bill-ui .btn {
@@ -954,7 +1392,7 @@
                 <button type="button" class="page-settings-btn" onclick="openGlobalPageSettings()">
                     <i class="fas fa-sliders-h"></i> Page Settings
                 </button>
-                <button id="logoutBtn" class="btn btn-outline-danger btn-sm">
+                <button id="logoutBtn" class="logout-btn" type="button">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
             </div>
