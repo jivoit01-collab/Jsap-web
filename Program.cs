@@ -228,7 +228,7 @@ builder.Services.AddRateLimiter(options =>
     });
     options.AddFixedWindowLimiter("Login", limiterOptions =>
     {
-        limiterOptions.PermitLimit = 5;
+        limiterOptions.PermitLimit = 12;
         limiterOptions.Window = TimeSpan.FromMinutes(1);
         limiterOptions.QueueLimit = 0;
     });

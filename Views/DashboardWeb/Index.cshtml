@@ -3,46 +3,111 @@
 }
 
 <style>
+    .dashboard-shell {
+        max-width: 980px;
+        margin: 0 auto;
+        min-height: calc(100vh - 110px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(18px, 5vw, 56px) 0;
+    }
+
     .dashboard-container {
-        max-width: 800px;
-        margin: 50px auto;
-        padding: 30px;
+        width: 100%;
+        display: grid;
+        gap: 24px;
     }
 
     .welcome-card {
-        background: linear-gradient(135deg, #0b2c4d 0%, #546b82 100%);
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #0b2c4d 0%, #234968 52%, #5b748c 100%);
         color: white;
-        padding: 40px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 30px;
-        text-align: center;
+        padding: clamp(28px, 5vw, 46px);
+        border-radius: 10px;
+        box-shadow: 0 20px 44px rgba(11, 44, 77, 0.18);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 22px;
+        align-items: center;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
-        .welcome-card h1 {
-            margin: 0 0 10px 0;
-            font-size: 32px;
-            font-weight: 600;
-        }
+    .welcome-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 26px 54px rgba(11, 44, 77, 0.22);
+    }
 
-        .welcome-card p {
-            margin: 0;
-            font-size: 18px;
-            opacity: 0.95;
-        }
+    .welcome-card::after {
+        content: "";
+        position: absolute;
+        right: -80px;
+        top: -110px;
+        width: 260px;
+        height: 260px;
+        border: 1px solid rgba(255,255,255,0.16);
+        border-radius: 50%;
+    }
+
+    .welcome-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.14);
+        color: rgba(255,255,255,0.92);
+        font-size: 12px;
+        font-weight: 800;
+        margin-bottom: 14px;
+    }
+
+    .welcome-card h1 {
+        margin: 0 0 8px 0;
+        font-size: clamp(28px, 4vw, 40px);
+        font-weight: 850;
+        letter-spacing: 0;
+        line-height: 1.18;
+    }
+
+    .welcome-card p {
+        margin: 0;
+        font-size: clamp(15px, 2vw, 18px);
+        opacity: 0.95;
+    }
+
+    .welcome-avatar {
+        width: clamp(68px, 10vw, 96px);
+        height: clamp(68px, 10vw, 96px);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.14);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: clamp(30px, 5vw, 44px);
+        font-weight: 850;
+        border: 1px solid rgba(255,255,255,0.22);
+        position: relative;
+        z-index: 1;
+    }
 
     .info-card {
         background: white;
-        padding: 30px;
-        border-radius: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
+        padding: clamp(20px, 4vw, 30px);
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+        margin-bottom: 0;
     }
 
     .info-row {
-        display: flex;
-        padding: 15px 0;
-        border-bottom: 1px solid #f0f0f0;
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 14px;
+        padding: 16px 0;
+        border-bottom: 1px solid #edf2f7;
+        align-items: center;
     }
 
         .info-row:last-child {
@@ -51,24 +116,30 @@
 
     .info-label {
         font-weight: 600;
-        color: #555;
-        width: 150px;
-        flex-shrink: 0;
+        color: #475569;
     }
 
     .info-value {
-        color: #333;
+        color: #0f172a;
+        min-width: 0;
     }
 
     .company-tag {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
         background: #e3f2fd;
-        color: #1976d2;
-        padding: 8px 16px;
-        border-radius: 20px;
+        color: #0b63ce;
+        padding: 8px 14px;
+        border-radius: 999px;
         margin: 5px 5px 5px 0;
         font-size: 14px;
-        font-weight: 500;
+        font-weight: 700;
+        transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .company-tag:hover {
+        transform: translateY(-1px);
+        background: #d7ecff;
     }
 
     .empty-state {
@@ -77,13 +148,39 @@
         color: #999;
         font-style: italic;
     }
+
+    @@media (max-width: 760px) {
+        .dashboard-shell {
+            min-height: auto;
+            padding-top: 20px;
+        }
+
+        .welcome-card {
+            grid-template-columns: 1fr;
+            text-align: left;
+        }
+
+        .welcome-avatar {
+            order: -1;
+        }
+
+        .info-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
+    }
 </style>
 
+<div class="dashboard-shell">
 <div class="dashboard-container">
     <!-- Welcome Section -->
     <div class="welcome-card">
-        <h1>👋 Welcome, <span id="welcomeUserName"></span>!</h1>
-        <p>Good to see you again</p>
+        <div>
+            <div class="welcome-kicker">Dashboard</div>
+            <h1>Welcome, <span id="welcomeUserName"></span></h1>
+            <p>Good to see you again. Your workspace is ready.</p>
+        </div>
+        <div class="welcome-avatar" id="welcomeAvatar">J</div>
     </div>
 
     <!-- User Information Card -->
@@ -102,6 +199,7 @@
         </div>
     </div>
 </div>
+</div>
 
 <script>
     function renderDashboardUserInfo() {
@@ -113,6 +211,7 @@
         document.getElementById("welcomeUserName").textContent = userName;
         document.getElementById("userId").textContent = userId;
         document.getElementById("userName").textContent = userName;
+        document.getElementById("welcomeAvatar").textContent = userName.trim().charAt(0).toUpperCase() || "J";
 
         const companyList = document.getElementById("companyList");
         companyList.innerHTML = "";

@@ -10,178 +10,302 @@
     <title>JSAP Login</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <style>
+        :root {
+            --brand: #002147;
+            --brand-2: #06406f;
+            --accent: #f9bd7c;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: #d7dee8;
+            --danger: #b42318;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Poppins', sans-serif;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #eef3f8;
+            color: var(--text);
         }
 
         .container-wrapper {
-            display: flex;
             width: 100%;
-            height: 100vh;
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: minmax(360px, 1fr) minmax(420px, 1fr);
+            background: #fff;
         }
 
         .left-section {
-            width: 50%;
             position: relative;
             overflow: hidden;
-            background-color: #002147;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 48px;
+            background:
+                linear-gradient(135deg, rgba(0, 33, 71, 0.96), rgba(0, 33, 71, 0.9)),
+                url("/images/JSAP-LOGO.png") center 18% / 180px auto no-repeat;
+        }
+
+        .left-section::after {
+            content: "";
+            position: absolute;
+            inset: auto -18% -24% auto;
+            width: 340px;
+            height: 340px;
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 50%;
         }
 
         .slider {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+            width: min(430px, 100%);
+            position: relative;
+            z-index: 1;
         }
 
-            .slider img {
-                position: absolute;
-                object-fit: cover;
-                transition: opacity 1s ease-in-out;
-            }
+        .quote-container {
+            padding: 8px 0;
+        }
 
-                .slider img:first-child {
-                    opacity: 1;
-                }
+        blockquote {
+            margin: 0;
+            color: var(--accent);
+            font-size: clamp(19px, 2vw, 27px);
+            line-height: 1.48;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+
+        blockquote p {
+            margin: 0;
+        }
+
+        .flex-container {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 26px;
+        }
+
+        .image-container {
+            width: 54px;
+            height: 54px;
+            flex: 0 0 auto;
+        }
+
+        .baba-img {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.8);
+        }
+
+        .text-container {
+            min-width: 0;
+        }
+
+        .name,
+        .designation {
+            margin: 0;
+            color: #fff1df;
+            line-height: 1.35;
+            font-size: 12px;
+        }
+
+        .name {
+            font-weight: 800;
+        }
 
         .right-section {
-            width: 50%;
-            padding: 60px;
+            min-height: 100vh;
+            padding: clamp(32px, 6vw, 72px);
             display: flex;
-            flex-direction: column;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             background: #fff;
+        }
+
+        .login-panel {
+            width: min(100%, 420px);
+        }
+
+        .brand-block {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .brand-block img {
+            width: 92px;
+            height: auto;
+            margin-bottom: 12px;
+        }
+
+        .brand-block h2 {
+            margin: 0;
+            color: var(--brand);
+            font-size: clamp(25px, 3vw, 34px);
+            font-weight: 850;
+            letter-spacing: 0;
+        }
+
+        .brand-block p {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .form-label {
+            color: #172033;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 8px;
         }
 
         .input-field {
             width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
+            min-height: 48px;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
             font-size: 15px;
+            color: var(--text);
+            background: #fff;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .input-field:focus {
+            border-color: var(--brand-2);
+            box-shadow: 0 0 0 4px rgba(0, 33, 71, 0.1);
+            outline: none;
         }
 
         .password-wrapper {
             position: relative;
         }
 
-            .password-wrapper .input-field {
-                padding-right: 46px;
-            }
+        .password-wrapper .input-field {
+            padding-right: 48px;
+        }
 
         .password-toggle {
             position: absolute;
             top: 50%;
             right: 12px;
             transform: translateY(-50%);
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             border: 0;
             background: transparent;
-            color: #002147;
+            color: var(--brand);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             padding: 0;
+            border-radius: 6px;
         }
 
-            .password-toggle svg {
-                width: 20px;
-                height: 20px;
-            }
+        .password-toggle:hover,
+        .password-toggle:focus {
+            background: #edf5ff;
+            outline: none;
+        }
 
-            .password-toggle:focus {
-                outline: 2px solid rgba(0, 33, 71, 0.25);
-                outline-offset: 2px;
-                border-radius: 4px;
-            }
+        .password-toggle svg {
+            width: 20px;
+            height: 20px;
+        }
 
-        .btn {
+        .login-btn {
             width: 100%;
-            padding: 12px;
-            background: #002147;
-            border: none;
+            min-height: 48px;
+            margin-top: 12px;
+            border: 0;
+            border-radius: 8px;
+            background: var(--brand);
             color: white;
             font-size: 16px;
-            font-weight: 600;
-            border-radius: 6px;
+            font-weight: 800;
             cursor: pointer;
+            box-shadow: 0 14px 26px rgba(0, 33, 71, 0.18);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
 
-            .btn:hover {
-                background: #001b36;
+        .login-btn:hover {
+            background: #001a38;
+            transform: translateY(-1px);
+            box-shadow: 0 18px 32px rgba(0, 33, 71, 0.24);
+        }
+
+        .login-btn:disabled {
+            cursor: wait;
+            opacity: 0.82;
+            transform: none;
+        }
+
+        .error-message,
+        #error {
+            display: none;
+            margin: 14px 0 0;
+            padding: 10px 12px;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            background: #fef2f2;
+            color: var(--danger);
+            font-size: 13px;
+            font-weight: 650;
+        }
+
+        @@media (max-width: 900px) {
+            .container-wrapper {
+                grid-template-columns: 1fr;
             }
 
-            .btn:disabled {
-                cursor: not-allowed;
-                opacity: 0.85;
+            .left-section {
+                min-height: 260px;
+                padding: 34px 24px;
             }
 
-        .error-message {
-            color: red;
-            font-size: 14px;
-            margin-top: 10px;
+            .right-section {
+                min-height: auto;
+                padding: 34px 22px 42px;
+                align-items: flex-start;
+            }
+
+            .login-panel {
+                margin: 0 auto;
+            }
         }
 
-        .quote-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #002147;
-            padding: 30px;
-            border-radius: 10px;
-            text-align: justify;
-            max-width: 80%;
-        }
+        @@media (max-width: 520px) {
+            .left-section {
+                min-height: 220px;
+                padding: 26px 20px;
+                align-items: flex-end;
+            }
 
-        blockquote {
-            color: #f9bd7c;
-            font-size: 20px;
-            margin: 0;
-        }
+            blockquote {
+                font-size: 17px;
+            }
 
-        .flex-container {
-            display: flex;
-            align-items: center; /* Ensure everything is centered vertically */
-            gap: 10px; /* Space between image and text */
-            margin-top: 20px; /* Space between quote and citation */
-        }
+            .flex-container {
+                margin-top: 18px;
+            }
 
-        .image-container {
-            flex-shrink: 0;
-            width: 60px; /* Set a fixed width */
-            height: 60px; /* Set a fixed height */
-        }
+            .brand-block {
+                margin-bottom: 24px;
+            }
 
-        .baba-img {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            object-fit: cover;
+            .brand-block img {
+                width: 76px;
+            }
         }
-
-        .text-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .name, .designation {
-            margin: 0;
-            color: #f9bd7c;
-            line-height: 1.3; /* Improve line spacing */
-        }
-
     </style>
 </head>
 <body>
@@ -207,9 +331,11 @@
             </div>
         </div>
         <div class="right-section">
-            <div class="text-center mb-4">
+            <div class="login-panel">
+            <div class="brand-block">
                 <img src="~/images/JSAP-LOGO.png" alt="JSAP Logo" width="80">
-                <h2 style="color:#002147"><b>Welcome to Jivo Infotech</b></h2>
+                <h2>Welcome to Jivo Infotech</h2>
+                <p>Sign in to continue to JSAP</p>
             </div>
 
             <form id="loginForm">
@@ -231,20 +357,47 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn" id="loginSubmitBtn">Sign In</button>
-                <p id="error" style="color:red;"></p>
+                <button type="submit" class="login-btn" id="loginSubmitBtn">Sign In</button>
+                <p id="error" role="alert"></p>
             </form>
 
             @if (!string.IsNullOrEmpty(ViewBag.ErrorMessage))
             {
                 <p class="error-message">@ViewBag.ErrorMessage</p>
             }
+            </div>
         </div>
     </div>
     <script>
         let loginInProgress = false;
         const passwordInput = document.getElementById("password");
         const togglePasswordBtn = document.getElementById("togglePassword");
+        const errorEl = document.getElementById("error");
+        const usernameInput = document.getElementById("username");
+
+        function showError(message) {
+            if (!errorEl) return;
+            errorEl.innerText = message || "Unable to sign in. Please try again.";
+            errorEl.style.display = "block";
+        }
+
+        function clearError() {
+            if (!errorEl) return;
+            errorEl.innerText = "";
+            errorEl.style.display = "none";
+        }
+
+        function getRedirectUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const returnUrl = params.get("ReturnUrl");
+            if (returnUrl && returnUrl.startsWith("/") && !returnUrl.toLowerCase().startsWith("/login")) {
+                return returnUrl;
+            }
+            return "/DashboardWeb/Index";
+        }
+
+        usernameInput.addEventListener("input", clearError);
+        passwordInput.addEventListener("input", clearError);
 
         togglePasswordBtn.addEventListener("click", function () {
             const isPasswordHidden = passwordInput.type === "password";
@@ -263,9 +416,17 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Signing in...';
 
-            const loginUser = document.getElementById("username").value;
-            const loginPassword = document.getElementById("password").value;
-            const errorEl = document.getElementById("error");
+            const loginUser = usernameInput.value.trim();
+            const loginPassword = passwordInput.value;
+            clearError();
+
+            if (!loginUser || !loginPassword) {
+                showError("Please enter both username and password.");
+                loginInProgress = false;
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                return;
+            }
 
             try {
                 const loginRes = await fetch('/api/auth/login', {
@@ -276,6 +437,9 @@
                 });
 
                 if (!loginRes.ok) {
+                    if (loginRes.status === 429) {
+                        throw new Error("Too many attempts. Please wait one minute and try again.");
+                    }
                     const errText = await loginRes.text();
                     let errData;
                     try { errData = JSON.parse(errText); } catch { errData = { message: "Login failed" }; }
@@ -294,7 +458,13 @@
                     throw new Error("Invalid user data received");
                 }
 
+                const authHeaders = {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + loginData.accessToken
+                };
+
                 const companyRes = await fetch(`/api/auth/getcompanies?userId=${userId}`, {
+                    headers: authHeaders,
                     credentials: 'include'
                 });
                 if (!companyRes.ok) {
@@ -314,7 +484,7 @@
 
                 const sessionRes = await fetch('/websession/set', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders,
                     credentials: 'include',
                     body: JSON.stringify({
                         userId: userId,
@@ -332,16 +502,11 @@
                 const sessionData = await sessionRes.json();
                 console.log("Session set response:", sessionData);
 
-                window.location.href = "/DashboardWeb/Index";
+                window.location.replace(getRedirectUrl());
 
             } catch (err) {
                 console.error("Login error:", err);
-                if (errorEl) {
-                    errorEl.innerText = err.message || "An unexpected error occurred";
-                    errorEl.style.display = "block";
-                } else {
-                    alert(err.message || "An unexpected error occurred");
-                }
+                showError(err.message || "An unexpected error occurred");
                 loginInProgress = false;
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
@@ -349,19 +514,8 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            const errorEl = document.getElementById("error");
-            if (errorEl) errorEl.style.display = "none";
-
-            fetch('/api/Auth/refresh', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
-            }).then(function(response) {
-                if (response.ok) {
-                    window.location.href = "/DashboardWeb/Index";
-                }
-            }).catch(function() { });
+            clearError();
+            usernameInput.focus();
         });
     </script>
 </body>
