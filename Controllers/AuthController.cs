@@ -168,6 +168,40 @@ namespace JSAPNEW.Controllers
             return Ok(new { success = true, message = "Logged out successfully" });
         }
 
+        [HttpGet("me")]
+        public async Task<IActionResult> Me()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("userId");
+                if (!int.TryParse(userIdClaim, out var userId) || userId <= 0)
+                    return Unauthorized(new { success = false, message = "Authentication required" });
+
+                var user = await _userService.GetUserByIdAsync(userId);
+                if (user == null)
+                    return NotFound(new { success = false, message = "User not found" });
+
+                var displayName = BuildDisplayName(user);
+
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        userId = user.userId,
+                        userName = displayName,
+                        loginUser = user.loginUser,
+                        userEmail = user.userEmail
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching current user profile");
+                return StatusCode(500, new { success = false, message = "Something went wrong" });
+            }
+        }
+
         [HttpGet("getcompanies")]
         public async Task<IActionResult> GetCompanies()
         {
@@ -186,7 +220,7 @@ namespace JSAPNEW.Controllers
                 if (companyList.Count == 0)
                     return Ok(new { success = false, message = "No companies found for this user", data = companyList });
 
-                return Ok(new { success = true, data = companyList });
+            return Ok(new { success = true, data = companyList });
             }
             catch (Exception ex)
             {
@@ -235,5 +269,14 @@ namespace JSAPNEW.Controllers
 
         private string GetUserAgent()
             => Request.Headers.UserAgent.ToString();
+
+        private static string BuildDisplayName(UserDto user)
+        {
+            var fullName = $"{user.firstName} {user.lastName}".Trim();
+            if (!string.IsNullOrWhiteSpace(fullName)) return fullName;
+            if (!string.IsNullOrWhiteSpace(user.userName)) return user.userName;
+            if (!string.IsNullOrWhiteSpace(user.loginUser)) return user.loginUser;
+            return user.userId.ToString();
+        }
     }
 }

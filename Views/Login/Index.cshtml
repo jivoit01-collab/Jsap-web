@@ -312,10 +312,6 @@
                     throw new Error(companyData.message || "No companies found for your account");
                 }
 
-                localStorage.setItem("userId", userId);
-                localStorage.setItem("userName", userName);
-                localStorage.setItem("companies", JSON.stringify(companyData.data));
-
                 const sessionRes = await fetch('/websession/set', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

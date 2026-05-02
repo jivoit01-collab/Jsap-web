@@ -195,16 +195,24 @@ namespace JSAPNEW.Services.Implementation
             {
                 await connection.OpenAsync();
 
-                var user = await connection.QueryFirstOrDefaultAsync<User>(
+                var user = await connection.QueryFirstOrDefaultAsync<dynamic>(
                     "SELECT * FROM jsUser WHERE UserId = @UserId",
                     new { UserId = userId }
                 );
 
-                return user == null ? null : new UserDto
+                if (user == null) return null;
+
+                var dict = (IDictionary<string, object>)user;
+
+                return new UserDto
                 {
-                    userId = user.UserId,
-                    userName = user.UserName ?? string.Empty,
-                    loginUser = user.LoginUser ?? string.Empty
+                    userId = dict.TryGetValue("userId", out var uid) && uid != null ? Convert.ToInt32(uid) : userId,
+                    userName = dict.TryGetValue("userName", out var un) ? un?.ToString() ?? string.Empty : string.Empty,
+                    userEmail = dict.TryGetValue("userEmail", out var ue) ? ue?.ToString() ?? string.Empty : string.Empty,
+                    loginUser = dict.TryGetValue("loginUser", out var lu) ? lu?.ToString() ?? string.Empty : string.Empty,
+                    firstName = dict.TryGetValue("firstName", out var fn) ? fn?.ToString() ?? string.Empty : string.Empty,
+                    lastName = dict.TryGetValue("lastName", out var ln) ? ln?.ToString() ?? string.Empty : string.Empty,
+                    Role = dict.TryGetValue("role", out var r) ? r?.ToString() ?? string.Empty : (dict.TryGetValue("Role", out var r2) ? r2?.ToString() ?? string.Empty : string.Empty)
                 };
             }
         }

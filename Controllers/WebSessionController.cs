@@ -35,15 +35,26 @@ namespace JSAPNEW.Controllers
 
                 // Fetch companies using the existing service
                 var companies = (await _userService.GetCompanyAsync(userId))?.ToList();
+                var user = await _userService.GetUserByIdAsync(userId);
 
                 if (companies == null || companies.Count == 0)
                 {
                     return BadRequest(new { success = false, message = "No companies found for user" });
                 }
 
+                var fullName = $"{user?.firstName} {user?.lastName}".Trim();
+                var displayName = !string.IsNullOrWhiteSpace(fullName)
+                    ? fullName
+                    : (!string.IsNullOrWhiteSpace(user?.userName)
+                        ? user.userName
+                        : (!string.IsNullOrWhiteSpace(user?.loginUser) ? user.loginUser : request?.UserName ?? "Guest"));
+
                 // Set session values
                 HttpContext.Session.SetInt32("userId", userId);
-                HttpContext.Session.SetString("username", User.Identity?.Name ?? request?.UserName ?? "Guest");
+                HttpContext.Session.SetString("username", displayName);
+                HttpContext.Session.SetString("userName", displayName);
+                HttpContext.Session.SetString("loginUser", !string.IsNullOrWhiteSpace(user?.loginUser) ? user.loginUser : displayName);
+                HttpContext.Session.SetString("userEmail", user?.userEmail ?? string.Empty);
                 HttpContext.Session.SetString("companyList", JsonConvert.SerializeObject(companies));
                 HttpContext.Session.SetInt32("selectedCompanyId", companies[0].id);
 

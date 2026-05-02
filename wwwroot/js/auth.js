@@ -4,6 +4,8 @@
 
     var accessToken = null;
     var refreshPromise = null;
+    var authInitPromise = null;
+    var authReady = false;
 
     function isAuthUrl(url) {
         var value = typeof url === "string" ? url : (url && url.url) || "";
@@ -44,6 +46,7 @@
                 }
 
                 accessToken = data.accessToken;
+                authReady = true;
                 return accessToken;
             })
             .finally(function () {
@@ -53,9 +56,44 @@
         return refreshPromise;
     }
 
+    function redirectToLogin() {
+        if (!window.location.pathname.toLowerCase().includes("/login")) {
+            window.location.href = "/Login";
+        }
+    }
+
+    function initializeAuth(options) {
+        options = options || {};
+        if (authReady && accessToken) return Promise.resolve(accessToken);
+        if (authInitPromise) return authInitPromise;
+
+        authInitPromise = refreshAccessToken()
+            .catch(function (error) {
+                authReady = false;
+                accessToken = null;
+                if (options.redirectOnFailure !== false) {
+                    redirectToLogin();
+                }
+                throw error;
+            })
+            .finally(function () {
+                authInitPromise = null;
+            });
+
+        return authInitPromise;
+    }
+
     async function authFetch(input, init, retrying) {
         var options = Object.assign({}, init || {});
         options.credentials = options.credentials || "include";
+
+        if (!accessToken && !isAuthUrl(input)) {
+            try {
+                await initializeAuth({ redirectOnFailure: false });
+            } catch (error) {
+                // Let the original request return its server-side auth result.
+            }
+        }
 
         if (accessToken && !isAuthUrl(input)) {
             options.headers = mergeHeaders(options.headers, {
@@ -90,9 +128,15 @@
 
     window.APP.clearAccessToken = function () {
         accessToken = null;
+        authReady = false;
     };
 
     window.APP.ensureAccessToken = refreshAccessToken;
+    window.APP.initializeAuth = initializeAuth;
+    window.APP.isAuthReady = function () {
+        return authReady && !!accessToken;
+    };
+    window.APP.redirectToLogin = redirectToLogin;
 
     window.APP.getAuthHeaders = function () {
         var headers = { "Content-Type": "application/json" };
@@ -121,6 +165,87 @@
                 }
             }
         });
+
+        if (!$.ajax.__authWrapped) {
+            var nativeAjax = $.ajax.bind($);
+
+            $.ajax = function (url, options) {
+                var settings = typeof url === "object"
+                    ? Object.assign({}, url)
+                    : Object.assign({}, options || {}, { url: url });
+
+                if (isAuthUrl(settings.url)) {
+                    return nativeAjax(settings);
+                }
+
+                var success = settings.success;
+                var error = settings.error;
+                var complete = settings.complete;
+                var context = settings.context || settings;
+                var deferred = $.Deferred();
+                var currentRequest = null;
+
+                delete settings.success;
+                delete settings.error;
+                delete settings.complete;
+
+                function invoke(callback, args) {
+                    if (!callback) return;
+                    if ($.isArray && $.isArray(callback)) {
+                        callback.forEach(function (fn) {
+                            if (typeof fn === "function") fn.apply(context, args);
+                        });
+                    } else if (typeof callback === "function") {
+                        callback.apply(context, args);
+                    }
+                }
+
+                function run(retrying) {
+                    var willRetry = false;
+                    currentRequest = nativeAjax(settings)
+                        .done(function (data, textStatus, jqXHR) {
+                            invoke(success, [data, textStatus, jqXHR]);
+                            deferred.resolveWith(context, [data, textStatus, jqXHR]);
+                        })
+                        .fail(function (jqXHR, textStatus, errorThrown) {
+                            if (jqXHR && jqXHR.status === 401 && !retrying) {
+                                willRetry = true;
+                                initializeAuth({ redirectOnFailure: false })
+                                    .then(function () { run(true); })
+                                    .catch(function () {
+                                        invoke(error, [jqXHR, textStatus, errorThrown]);
+                                        deferred.rejectWith(context, [jqXHR, textStatus, errorThrown]);
+                                    });
+                                return;
+                            }
+
+                            invoke(error, [jqXHR, textStatus, errorThrown]);
+                            deferred.rejectWith(context, [jqXHR, textStatus, errorThrown]);
+                        })
+                        .always(function () {
+                            if (!willRetry) {
+                                invoke(complete, arguments);
+                            }
+                        });
+                }
+
+                initializeAuth({ redirectOnFailure: false })
+                    .then(function () { run(false); })
+                    .catch(function () { run(false); });
+
+                var promise = deferred.promise();
+                promise.abort = function () {
+                    if (currentRequest && currentRequest.abort) {
+                        currentRequest.abort();
+                    }
+                    deferred.rejectWith(context, [currentRequest, "abort", "abort"]);
+                    return promise;
+                };
+                return promise;
+            };
+
+            $.ajax.__authWrapped = true;
+        }
 
         $(document).ajaxError(function (event, xhr, settings, thrownError) {
             if (xhr.status === 0 || thrownError === "abort") return;
@@ -198,9 +323,7 @@
         document.addEventListener("DOMContentLoaded", function () {
             setupJQueryAuth();
             if (!window.location.pathname.toLowerCase().includes("/login")) {
-                refreshAccessToken().catch(function () {
-                    window.location.href = "/Login";
-                });
+                initializeAuth().catch(function () { });
             }
         });
     }

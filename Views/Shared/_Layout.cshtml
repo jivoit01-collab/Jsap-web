@@ -13,9 +13,9 @@
     var userEmail = Context.Session.GetString("userEmail")
         ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
         ?? User.FindFirst("userEmail")?.Value;
-    var sidebarUserDisplay = !string.IsNullOrWhiteSpace(username)
-        ? username
-        : (!string.IsNullOrWhiteSpace(userEmail) ? userEmail : "Guest");
+    var sidebarUserDisplay = !string.IsNullOrWhiteSpace(userEmail)
+        ? userEmail
+        : (!string.IsNullOrWhiteSpace(username) ? username : "Guest");
     var userId = Context.Session.GetInt32("userId"); // Get userId from session
 
     List<CompanyDto> companies = new List<CompanyDto>();
@@ -1632,14 +1632,13 @@
 
         $(document).ready(function() {
             // Get userId and companyId from session
-            const userId = @userId;
+            const userId = @(userId ?? 0);
             const companyId = @(selectedCompanyId ?? 1);
 
-            // Load dynamic menu
-            loadDynamicMenu(userId, companyId);
+            initializeAuthenticatedPage(userId, companyId);
 
             // Check if session is valid
-            if (@(companies.Count == 0 ? "true" : "false")) {
+            if (userId > 0 && @(companies.Count == 0 ? "true" : "false")) {
                 $("#sessionError").show();
                 $("#dashboard-content").hide();
             }
@@ -1721,6 +1720,99 @@
             }
         });
 
+        async function initializeAuthenticatedPage(userId, companyId) {
+            try {
+                if (!window.APP || !window.APP.initializeAuth) {
+                    throw new Error('Authentication initializer is not available');
+                }
+
+                await window.APP.initializeAuth();
+                await hydrateUserProfile();
+
+                if (!userId || userId <= 0) {
+                    await restoreServerSession();
+                    return;
+                }
+
+                loadDynamicMenu(userId, companyId);
+            } catch (error) {
+                console.warn('Authentication initialization failed:', error);
+                stopMenuLoading('Session expired. Redirecting to login...');
+                if (window.APP && window.APP.redirectToLogin) {
+                    window.APP.redirectToLogin();
+                } else {
+                    window.location.href = '/Login';
+                }
+            }
+        }
+
+        async function hydrateUserProfile() {
+            const response = await fetch('/api/auth/me', {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const result = await response.json();
+            if (!result.success || !result.data) {
+                return;
+            }
+
+            const user = result.data;
+            window.APP = Object.assign(window.APP || {}, {
+                userId: user.userId,
+                userName: user.userName || user.loginUser || String(user.userId || ''),
+                userEmail: user.userEmail || ''
+            });
+
+            const sidebarUserName = document.getElementById('sidebarUserName');
+            const sidebarLabel = user.userEmail || user.userName || user.loginUser || String(user.userId || '');
+            if (sidebarUserName && sidebarLabel) {
+                sidebarUserName.textContent = sidebarLabel;
+                sidebarUserName.title = sidebarLabel;
+            }
+
+            document.dispatchEvent(new CustomEvent('app:userProfileReady', { detail: user }));
+        }
+
+        async function restoreServerSession() {
+            const response = await fetch('/api/auth/getcompanies', {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error('Unable to restore company session');
+            }
+
+            const companyData = await response.json();
+            if (!companyData.success || !companyData.data || !companyData.data.length) {
+                throw new Error(companyData.message || 'No companies found for this account');
+            }
+
+            const sessionResponse = await fetch('/websession/set', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    companies: companyData.data
+                })
+            });
+
+            if (!sessionResponse.ok) {
+                throw new Error('Unable to rebuild server session');
+            }
+
+            window.location.reload();
+        }
+
+        function stopMenuLoading(message) {
+            $('#menuLoading').html(`<p style="color: #ff6b6b;">${message}</p>`);
+        }
+
         function loadDynamicMenu(userId, companyId) {
             $.ajax({
                 url: `/api/Permission/GetUserEffectivePermissions?UserId=${userId}&CompanyId=${companyId}`,
@@ -1735,7 +1827,7 @@
                 },
                 error: function(error) {
                     console.error('Error loading permissions:', error);
-                    $('#menuLoading').html('<p style="color: #ff6b6b;">Error loading menu. Please refresh the page.</p>');
+                    stopMenuLoading('Error loading menu. Please refresh the page.');
                 }
             });
         }
@@ -1831,18 +1923,10 @@
     </script>
     <script>
         (function() {
-            const userId = @userId;
-            const currentPath = window.location.pathname.toLowerCase();
-            if (!userId || userId <= 0) {
-                if (!currentPath.includes("/login")) {
-                    console.log("No authenticated session found, redirecting to login");
-                    window.location.href = "/Login";
-                }
-                return;
-            }
+            const userId = @(userId ?? 0);
             window.APP = Object.assign(window.APP || {}, {
                 userId: userId,
-                userName: "@sidebarUserDisplay",
+                userName: "@username",
                 userEmail: "@(userEmail ?? "")",
                 companies: @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(companies))
             });
@@ -1860,7 +1944,7 @@
                     if (window.APP && window.APP.clearAccessToken) {
                         window.APP.clearAccessToken();
                     }
-                    localStorage.clear();
+                    localStorage.removeItem('sidebarCollapsed');
                     window.location.href = '/Login';
                 });
             }

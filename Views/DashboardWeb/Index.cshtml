@@ -104,28 +104,30 @@
 </div>
 
 <script>
-    // Load data from localStorage
-    const userId = localStorage.getItem("userId") || "N/A";
-    const userName = localStorage.getItem("userName") || "Guest";
-    const companies = JSON.parse(localStorage.getItem("companies") || "[]");
+    function renderDashboardUserInfo() {
+        const appState = window.APP || {};
+        const userId = appState.userId || "N/A";
+        const userName = appState.userName || "Guest";
+        const companies = appState.companies || [];
 
-    // Update welcome message
-    document.getElementById("welcomeUserName").textContent = userName;
+        document.getElementById("welcomeUserName").textContent = userName;
+        document.getElementById("userId").textContent = userId;
+        document.getElementById("userName").textContent = userName;
 
-    // Update user info
-    document.getElementById("userId").textContent = userId;
-    document.getElementById("userName").textContent = userName;
-
-    // Update company list
-    const companyList = document.getElementById("companyList");
-    if (companies.length > 0) {
-        companies.forEach(c => {
-            const tag = document.createElement("span");
-            tag.className = "company-tag";
-            tag.textContent = c.company;
-            companyList.appendChild(tag);
-        });
-    } else {
-        companyList.innerHTML = '<span class="empty-state">No companies assigned</span>';
+        const companyList = document.getElementById("companyList");
+        companyList.innerHTML = "";
+        if (companies.length > 0) {
+            companies.forEach(c => {
+                const tag = document.createElement("span");
+                tag.className = "company-tag";
+                tag.textContent = c.company;
+                companyList.appendChild(tag);
+            });
+        } else {
+            companyList.innerHTML = '<span class="empty-state">No companies assigned</span>';
+        }
     }
+
+    document.addEventListener("DOMContentLoaded", renderDashboardUserInfo);
+    document.addEventListener("app:userProfileReady", renderDashboardUserInfo);
 </script>
