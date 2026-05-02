@@ -69,6 +69,42 @@
             font-size: 15px;
         }
 
+        .password-wrapper {
+            position: relative;
+        }
+
+            .password-wrapper .input-field {
+                padding-right: 46px;
+            }
+
+        .password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 12px;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 28px;
+            border: 0;
+            background: transparent;
+            color: #002147;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+        }
+
+            .password-toggle svg {
+                width: 20px;
+                height: 20px;
+            }
+
+            .password-toggle:focus {
+                outline: 2px solid rgba(0, 33, 71, 0.25);
+                outline-offset: 2px;
+                border-radius: 4px;
+            }
+
         .btn {
             width: 100%;
             padding: 12px;
@@ -83,6 +119,11 @@
 
             .btn:hover {
                 background: #001b36;
+            }
+
+            .btn:disabled {
+                cursor: not-allowed;
+                opacity: 0.85;
             }
 
         .error-message {
@@ -179,10 +220,18 @@
 
                 <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
-                    <input type="password" id="password" name="Password" class="input-field" placeholder="Enter your password" required />
+                    <div class="password-wrapper">
+                        <input type="password" id="password" name="Password" class="input-field" placeholder="Enter your password" required />
+                        <button type="button" class="password-toggle" id="togglePassword" aria-label="Show password" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn">Sign In</button>
+                <button type="submit" class="btn" id="loginSubmitBtn">Sign In</button>
                 <p id="error" style="color:red;"></p>
             </form>
 
@@ -194,6 +243,16 @@
     </div>
     <script>
         let loginInProgress = false;
+        const passwordInput = document.getElementById("password");
+        const togglePasswordBtn = document.getElementById("togglePassword");
+
+        togglePasswordBtn.addEventListener("click", function () {
+            const isPasswordHidden = passwordInput.type === "password";
+            passwordInput.type = isPasswordHidden ? "text" : "password";
+            togglePasswordBtn.setAttribute("aria-label", isPasswordHidden ? "Hide password" : "Show password");
+            togglePasswordBtn.setAttribute("aria-pressed", isPasswordHidden ? "true" : "false");
+        });
+
         document.getElementById("loginForm").addEventListener("submit", async function (e) {
             e.preventDefault();
             if (loginInProgress) return;
@@ -202,7 +261,7 @@
             const submitBtn = e.target.querySelector("button[type='submit']");
             const originalText = submitBtn.innerHTML;
             submitBtn.disabled = true;
-            submitBtn.innerHTML = "Signing in...";
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Signing in...';
 
             const loginUser = document.getElementById("username").value;
             const loginPassword = document.getElementById("password").value;
