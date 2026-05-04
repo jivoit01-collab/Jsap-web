@@ -37,7 +37,15 @@ namespace JSAPNEW.Services.Implementation
         // item to SAP. Keyed by InitId, not FlowId, because that is the unit SAP receives.
         private static readonly ConcurrentDictionary<int, SemaphoreSlim> _sapPostLocks = new();
 
-
+        private sealed class ItemCurrentStageInfo
+        {
+            public int FlowId { get; set; }
+            public int CurrentStage { get; set; }
+            public int TotalStage { get; set; }
+            public int CurrentStageId { get; set; }
+            public string Status { get; set; } = string.Empty;
+            public bool? IsLastStage { get; set; }
+        }
 
         private readonly INotificationService _notificationService;
         private readonly IUserService _userService;
@@ -457,31 +465,49 @@ namespace JSAPNEW.Services.Implementation
                     // ── Step 1: Determine final approval stage from DB workflow state ──
                     // Do NOT use pending SAP rows to decide final stage. SAP rows are integration data,
                     // while jsGetItemCurrentStage is the approval workflow source of truth.
-                    var stageData = await conn.QueryFirstOrDefaultAsync<dynamic>(
+                    var stageData = await conn.QueryFirstOrDefaultAsync<ItemCurrentStageInfo>(
                         "imc.jsGetItemCurrentStage",
                         new { flowId = request.itemId },
                         commandType: CommandType.StoredProcedure
                     );
 
-                    if (stageData == null)
+                    if (stageData == null || !stageData.IsLastStage.HasValue)
                     {
                         Console.WriteLine($"[WARN] IMC approval blocked: no stage data found. FlowId={request.itemId}, Company={request.company}, UserId={request.userId}");
 
                         return new ItemMasterModel
                         {
                             Success = false,
-                            Message = "Unable to determine current approval stage. DB approval was not completed.",
+                            Message = "Unable to determine current approval stage from database. DB approval was not completed.",
                             ApprovalStatus = "Blocked",
                             SapStatus = "Skipped",
                             MartStatus = "Skipped"
                         };
                     }
 
-                    int currentStage = Convert.ToInt32(stageData.currentStage);
-                    int totalStage = Convert.ToInt32(stageData.totalStage);
-                    int currentStageId = Convert.ToInt32(stageData.currentStageId);
-                    string stageStatus = Convert.ToString(stageData.status) ?? "Unknown";
-                    bool isLastStage = currentStage > 0 && totalStage > 0 && currentStage == totalStage;
+                    int currentStage = stageData.CurrentStage;
+                    int totalStage = stageData.TotalStage;
+                    int currentStageId = stageData.CurrentStageId;
+                    string stageStatus = stageData.Status ?? "Unknown";
+                    bool isLastStage = stageData.IsLastStage.Value;
+
+                    if (stageData.FlowId != request.itemId
+                        || currentStage <= 0
+                        || totalStage <= 0
+                        || currentStageId <= 0
+                        || stageStatus.Equals("Invalid FlowId", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine($"[WARN] IMC approval blocked: invalid stage data. FlowId={request.itemId}, DbFlowId={stageData.FlowId}, CurrentStage={currentStage}, TotalStage={totalStage}, CurrentStageId={currentStageId}, Status={stageStatus}, IsLastStage={isLastStage}");
+
+                        return new ItemMasterModel
+                        {
+                            Success = false,
+                            Message = "Invalid approval stage data. DB approval was not completed.",
+                            ApprovalStatus = "Blocked",
+                            SapStatus = "Skipped",
+                            MartStatus = "Skipped"
+                        };
+                    }
 
                     Console.WriteLine($"[INFO] IMC stage check. FlowId={request.itemId}, CurrentStage={currentStage}, TotalStage={totalStage}, CurrentStageId={currentStageId}, Status={stageStatus}, IsLastStage={isLastStage}");
 
