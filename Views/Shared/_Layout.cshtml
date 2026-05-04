@@ -153,6 +153,10 @@
             min-width: 0;
         }
 
+        .header-actions > div {
+            min-width: 0;
+        }
+
         .brand-cluster,
         .company-picker {
             display: flex;
@@ -1183,48 +1187,83 @@
         }
 
         @@media (max-width: 768px) {
-            .header {
-                height: auto;
-                min-height: var(--header-height);
-                padding: 10px 14px;
-                align-items: flex-start;
-                gap: 10px;
-                flex-wrap: wrap;
+            :root {
+                --header-height: 146px;
             }
 
-                .header h4 {
-                    font-size: 16px;
-                }
+            .header {
+                height: var(--header-height);
+                padding: 10px 14px;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-rows: 36px 1fr;
+                align-items: stretch;
+                gap: 8px;
+                overflow: hidden;
+            }
 
-            #companyDropdown {
-                width: min(100%, 260px) !important;
-                font-size: 12px;
+            .header h4 {
+                font-size: 16px;
+            }
+
+            .brand-cluster {
+                width: 100%;
+                min-width: 0;
+                align-items: center;
+            }
+
+            .brand-cluster img {
+                width: 32px !important;
+                height: 32px !important;
+            }
+
+            .hamburger-btn {
+                flex: 0 0 auto;
+                margin-right: 12px;
             }
 
             .header-actions {
-                gap: 8px;
                 width: 100%;
-                justify-content: flex-start;
-                flex-wrap: wrap;
-                padding-left: 42px;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                align-items: stretch;
+                gap: 8px;
+                padding-left: 0;
+            }
+
+            .header-actions > div {
+                grid-column: 1 / -1;
+                min-width: 0;
             }
 
             .company-picker {
                 width: 100%;
+                display: grid;
+                grid-template-columns: auto minmax(0, 1fr);
+                align-items: center;
+                gap: 8px;
             }
 
-            .page-settings-btn {
-                padding: 7px 10px;
+            #companyDropdown {
+                width: 100% !important;
+                min-width: 0;
+                height: 38px;
+                padding-top: 7px;
+                padding-bottom: 7px;
                 font-size: 12px;
             }
 
+            .page-settings-btn,
             .logout-btn {
+                width: 100%;
+                min-width: 0;
+                justify-content: center;
                 padding: 7px 10px;
                 font-size: 12px;
             }
 
             .main-body {
-                margin-top: calc(var(--header-height) + 52px);
+                margin-top: var(--header-height);
                 padding: 16px;
             }
 
@@ -1234,32 +1273,33 @@
         }
 
         @@media (max-width: 520px) {
-            .brand-cluster {
-                min-width: 0;
-            }
-
-            .header-actions {
-                padding-left: 0;
+            :root {
+                --header-height: 146px;
             }
 
             .company-picker {
-                align-items: flex-start;
-                flex-direction: column;
+                grid-template-columns: auto minmax(0, 1fr);
                 gap: 6px;
             }
 
-            #companyDropdown {
-                width: 100% !important;
-            }
-
-            .page-settings-btn,
-            .logout-btn {
-                flex: 1 1 auto;
-                min-width: 130px;
-            }
-
             .main-body {
-                margin-top: calc(var(--header-height) + 96px);
+                margin-top: var(--header-height);
+                padding: 12px;
+            }
+        }
+
+        @@media (max-width: 380px) {
+            :root {
+                --header-height: 188px;
+            }
+
+            .header-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .company-picker {
+                grid-template-columns: 1fr;
+                align-items: stretch;
             }
         }
 
