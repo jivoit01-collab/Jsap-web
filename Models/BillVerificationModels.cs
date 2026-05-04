@@ -34,11 +34,29 @@
         public string TaxName { get; set; }
         public object ItemValue { get; set; }
     }
+
+    public class BillSummaryDto
+    {
+        public int TotalBills { get; set; }
+        public int PendingMaker { get; set; }
+        public int ApprovedChecker { get; set; }
+        public int TotalPaid { get; set; }
+    }
+    public class DeleteRequest
+    {
+        public int VchNumber { get; set; }
+    }
 }
-public class BillSummaryDto
-{
-    public int TotalBills { get; set; }
-    public int PendingMaker { get; set; }
-    public int ApprovedChecker { get; set; }
-    public int TotalPaid { get; set; }
-}
+
+
+//public class BillSummaryDto
+//{
+//    public int TotalBills { get; set; }
+//    public int PendingMaker { get; set; }
+//    public int ApprovedChecker { get; set; }
+//    public int TotalPaid { get; set; }
+//}
+//public class DeleteRequest
+//{
+//    public int VchNumber { get; set; }
+//}
