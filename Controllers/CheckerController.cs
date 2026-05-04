@@ -67,10 +67,12 @@ namespace JSAPNEW.Controllers
     public class CheckerController : Controller
     {
         private readonly ICheckerService _service;
+        private readonly IMakerService _makerService;
 
-        public CheckerController(ICheckerService service)
+        public CheckerController(ICheckerService service, IMakerService makerService)
         {
             _service = service;
+            _makerService = makerService;
         }
 
         // ============================
@@ -88,6 +90,13 @@ namespace JSAPNEW.Controllers
         public IActionResult GetBillDetails(DateTime? fromDate, DateTime? toDate, string accountName)
         {
             var data = _service.GetBillDetails(fromDate, toDate, accountName);
+            return Json(data);
+        }
+
+        [HttpGet]
+        public IActionResult GetAccountSuggestions(string term, DateTime? fromDate, DateTime? toDate)
+        {
+            var data = _makerService.GetAccountSuggestions(term, fromDate, toDate);
             return Json(data);
         }
 

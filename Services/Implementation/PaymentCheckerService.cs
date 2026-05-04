@@ -40,10 +40,10 @@ namespace JSAPNEW.Services.Implementation
                     {
                         while (reader.Read())
                         {
-                            string paymentStatus = reader["PaymentStatus"]?.ToString();
+                            string paymentStatus = reader["PaymentStatus"] == DBNull.Value ? string.Empty : reader["PaymentStatus"]?.ToString()?.Trim() ?? string.Empty;
 
                             // Only Paid records
-                            if (paymentStatus != "Paid") continue;
+                            if (!string.Equals(paymentStatus, "Paid", StringComparison.OrdinalIgnoreCase)) continue;
 
                             data.Add(new BillDetailDto
                             {

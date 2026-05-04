@@ -8,10 +8,12 @@ namespace JSAPNEW.Controllers
     public class PaymentCheckerController : Controller
     {
         private readonly IPaymentCheckerService _service;
+        private readonly IMakerService _makerService;
 
-        public PaymentCheckerController(IPaymentCheckerService service)
+        public PaymentCheckerController(IPaymentCheckerService service, IMakerService makerService)
         {
             _service = service;
+            _makerService = makerService;
         }
 
         // ============================
@@ -29,6 +31,13 @@ namespace JSAPNEW.Controllers
         public IActionResult GetPaidBillDetails(DateTime? fromDate, DateTime? toDate, string accountName)
         {
             var data = _service.GetPaidBillDetails(fromDate, toDate, accountName);
+            return Json(data);
+        }
+
+        [HttpGet]
+        public IActionResult GetAccountSuggestions(string term, DateTime? fromDate, DateTime? toDate)
+        {
+            var data = _makerService.GetAccountSuggestions(term, fromDate, toDate);
             return Json(data);
         }
 

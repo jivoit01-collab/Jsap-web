@@ -179,12 +179,7 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     let toDate      = $("#toDate").val();
     let accountName = $("#accountName").val().trim() || null;
 
-    if (!fromDate || !toDate) {
-    $("#billTable").html(`<tr class="empty-row"><td colspan="16" class="text-center text-danger">Please select both dates.</td></tr>`);
-    return;
-    }
-
-    if (fromDate > toDate) {
+    if (fromDate && toDate && fromDate > toDate) {
     $("#billTable").html(`<tr class="empty-row"><td colspan="16" class="text-center text-danger">From Date cannot be greater than To Date.</td></tr>`);
     return;
     }
@@ -196,8 +191,8 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     $.ajax({
     url: "/Maker/GetBillDetails",
     method: "GET",
-    data: { fromDate, toDate, accountName },
-    timeout: 30000,
+    data: { fromDate: fromDate || null, toDate: toDate || null, accountName },
+    timeout: 120000,
     success: function (data) {
     console.log("API DATA:", data);
     renderTable(data || []);
@@ -226,11 +221,11 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     if (seenVch.has(item.vchNumber)) return;
     seenVch.add(item.vchNumber);
 
-    let checkerStatusValue = item.checkerStatus || "Pending";
+    let checkerStatusValue = normalizeStatus(item.checkerStatus, "Pending");
 
     let statusBadge =
-    checkerStatusValue === "Approved" ? `<span class="badge bg-success">Approved</span>` :
-    checkerStatusValue === "Rejected" ? `<span class="badge bg-danger">Rejected</span>`  :
+    checkerStatusValue === "approved" ? `<span class="badge bg-success">Approved</span>` :
+    checkerStatusValue === "rejected" ? `<span class="badge bg-danger">Rejected</span>`  :
     `<span class="badge bg-warning text-dark">Pending</span>`;
 
     html += `
@@ -267,7 +262,7 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     <td>${item.totalItemValue ?? 0}</td>
     <td>${item.totalItems ?? 0}</td>
     <td>
-    ${item.paymentStatus === "Paid"
+    ${normalizeStatus(item.paymentStatus, "UnPaid") === "paid"
     ? `<span class="badge bg-success">Paid</span>`
     : `<span class="badge bg-danger">UnPaid</span>`
     }
@@ -277,6 +272,10 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     });
 
     $("#billTable").html(html);
+    }
+
+    function normalizeStatus(value, fallback) {
+    return (value || fallback || "").toString().trim().toLowerCase();
     }
 
 
@@ -338,6 +337,10 @@ Layout = "~/Views/Shared/_Layout.cshtml";
     alert("Error occurred");
     }
     });
+    });
+
+    $(document).ready(function () {
+    loadData();
     });
 
 </script>

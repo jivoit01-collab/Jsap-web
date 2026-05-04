@@ -163,7 +163,7 @@ function loadData() {
             toDate: toDate || null,
             accountName: accountName
         },
-        timeout: 30000,
+        timeout: 120000,
         success: function (data) {
         renderTable(data || []);
         },
@@ -186,8 +186,8 @@ function renderTable(data) {
     let html = "";
 
     let approvedData = data.filter(item => 
-    item.checkerStatus === "Approved" && 
-    item.paymentStatus === "UnPaid"
+    normalizeStatus(item.checkerStatus, "") === "approved" && 
+    isUnpaidStatus(item.paymentStatus)
 );
    if (approvedData.length === 0) {
     $("#PaymentTable").html(`<tr class="empty-row"><td colspan="12" class="text-center">No approved unpaid bills found.</td></tr>`);
@@ -198,7 +198,7 @@ function renderTable(data) {
 
         let checkerBadge = `<span class="badge bg-success">Approved</span>`;
 
-        let paymentBadge = item.paymentStatus === "Paid"
+        let paymentBadge = normalizeStatus(item.paymentStatus, "UnPaid") === "paid"
             ? `<span class="badge bg-success">Paid</span>`
             : `<span class="badge bg-warning text-dark">UnPaid</span>`;
 
@@ -228,6 +228,15 @@ function renderTable(data) {
     $("#PaymentTable").html(html);
 }
 
+function normalizeStatus(value, fallback) {
+    return (value || fallback || "").toString().trim().toLowerCase().replace(/\s+/g, "");
+}
+
+function isUnpaidStatus(value) {
+    const status = normalizeStatus(value, "UnPaid");
+    return status === "unpaid" || status === "pending" || status === "";
+}
+
 //------------------------------------
 // DATE FORMAT
 //------------------------------------
@@ -255,7 +264,7 @@ function closePdf() {
 $("#searchBtn").click(loadData);
 
 $(document).ready(function () {
-    $("#PaymentTable").html(`<tr class="empty-row"><td colspan="12" class="text-center">Select filters and click Search to view approved unpaid bills.</td></tr>`);
+    loadData();
 });
 
 

@@ -578,7 +578,7 @@ function deleteAttachment(vchNumber, btn) {
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({ vchNumber: vchNumber }),
-        timeout: 30000,
+        timeout: 120000,
         success: function(res) {
             if (res && res.success) {
                 const cells = row.querySelectorAll('td');
@@ -619,7 +619,7 @@ function loadSummary() {
     $.ajax({
         url: '/Admin/GetSummary',
         method: 'GET',
-        timeout: 30000,
+        timeout: 120000,
         success: function(d) {
             $('#totalBills').text(d.totalBills ?? 0);
             $('#pendingMaker').text(d.pendingMaker ?? 0);
@@ -639,7 +639,7 @@ function loadAdminTable(config) {
         url: config.url,
         method: 'GET',
         data: getFilters(),
-        timeout: 30000,
+        timeout: 120000,
         success: function(data) {
             if (!data || !data.length) {
                 setBodyMessage(config.bodyId, config.colspan, 'No records found', false);

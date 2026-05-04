@@ -230,13 +230,7 @@
     let toDate      = $("#toDate").val();
     let accountName = $("#accountName").val().trim() || null;
 
-    if (!fromDate || !toDate) {
-    $("#paymentCheckerTable").html(`<tr class="empty-row"><td colspan="13" class="text-center text-danger">Please select both dates.</td></tr>`);
-    resetCards();
-    return;
-    }
-
-    if (fromDate > toDate) {
+    if (fromDate && toDate && fromDate > toDate) {
     $("#paymentCheckerTable").html(`<tr class="empty-row"><td colspan="13" class="text-center text-danger">From Date cannot be greater than To Date.</td></tr>`);
     resetCards();
     return;
@@ -249,11 +243,11 @@
     url: "/PaymentChecker/GetPaidBillDetails",
     method: "GET",
     data: {
-    fromDate:    fromDate,
-    toDate:      toDate,
+    fromDate:    fromDate || null,
+    toDate:      toDate || null,
     accountName: accountName
     },
-    timeout: 30000,
+    timeout: 120000,
     success: function (data) {
     renderTable(data || []);
     },
@@ -452,8 +446,10 @@
     if (term.length < 2) { $("#suggestionBox").empty(); return; }
 
     
-    $.get("/Maker/GetAccountSuggestions", {
-    term: term
+    $.get("/PaymentChecker/GetAccountSuggestions", {
+    term: term,
+    fromDate: $("#fromDate").val() || null,
+    toDate: $("#toDate").val() || null
     }, function (data) {
     let html = "";
     if (!data || data.length === 0) {
@@ -467,9 +463,13 @@
 
     $(document).on("mousedown", ".suggest-item", function (e) {
     e.preventDefault();
-    $("#accountName").val($(this).text().trim());
+    let text = $(this).text().trim();
+    if (text === "No result") return;
+    $("#accountName").val(text);
     $("#suggestionBox").empty();
     });
+
+    loadData();
 
     });
 
