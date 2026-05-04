@@ -2,8 +2,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Data;
-
+using JSAPNEW.Models;
 namespace JSAPNEW.Controllers
+
 {
     public class AdminController : Controller
     {
@@ -11,14 +12,15 @@ namespace JSAPNEW.Controllers
         private readonly string _connStr;
         private readonly IPaymentCheckerService _paymentService;
 
-        public AdminController(IConfiguration configuration, IPaymentCheckerService paymentService)   
-        {            _config = configuration;
+        public AdminController(IConfiguration configuration, IPaymentCheckerService paymentService)
+        {
+            _config = configuration;
             _connStr = _config.GetConnectionString("FHConnection");
             _paymentService = paymentService;
 
 
         }
-    
+
         // ✅ Admin Dashboard Page
         public IActionResult AdminPage()
         {
@@ -26,11 +28,11 @@ namespace JSAPNEW.Controllers
         }
 
         // ✅ Summary Cards
-       [HttpGet]
+        [HttpGet]
         public IActionResult GetSummary()
-       {
-           using var conn = new SqlConnection(_connStr);
-           conn.Open();
+        {
+            using var conn = new SqlConnection(_connStr);
+            conn.Open();
 
             var cmd = new SqlCommand(@"
 
@@ -67,9 +69,9 @@ LEFT JOIN RefMaster G
 WHERE A.VoucherDate >= @StartDate
            ", conn);
 
-           var reader = cmd.ExecuteReader();
+            var reader = cmd.ExecuteReader();
             if (reader.Read())
-          {
+            {
                 return Json(new
                 {
                     totalBills = reader["TotalBills"],
@@ -113,7 +115,7 @@ WHERE A.VoucherDate >= @StartDate
                 {
                     accountName = reader["AccountName"] == DBNull.Value ? "" : reader["AccountName"].ToString(),
                     vchNumber = reader["VchNumber"] == DBNull.Value ? "" : reader["VchNumber"].ToString(),
-                 voucherDate = reader["VoucherDate"] == DBNull.Value ? "" : Convert.ToDateTime(reader["VoucherDate"]).ToString("yyyy-MM-dd"),
+                    voucherDate = reader["VoucherDate"] == DBNull.Value ? "" : Convert.ToDateTime(reader["VoucherDate"]).ToString("yyyy-MM-dd"),
                     billAmount = reader["BillAmount"] == DBNull.Value ? "" : reader["BillAmount"].ToString(),
                     supplierRef = reader["SupplierRef"] == DBNull.Value ? "-" : reader["SupplierRef"].ToString(),
                     dueDate = reader["DueDate"] == DBNull.Value ? "-" : Convert.ToDateTime(reader["DueDate"]).ToString("yyyy-MM-dd"),
@@ -134,7 +136,7 @@ WHERE A.VoucherDate >= @StartDate
             return list;
         }
 
-       // ✅ Maker Activity Tab
+        // ✅ Maker Activity Tab
         [HttpGet]
         public IActionResult GetMakerActivity(string accountName, string fromDate, string toDate)
         {
@@ -156,7 +158,7 @@ WHERE A.VoucherDate >= @StartDate
         {
             var data = FetchBillDetails(accountName, fromDate, toDate);
             return Json(data);
-            }
+        }
         [HttpGet]
         public IActionResult GetPaymentCheckerActivity(string accountName, string fromDate, string toDate)
         {
@@ -171,7 +173,7 @@ WHERE A.VoucherDate >= @StartDate
         [HttpPost]
         public IActionResult DeleteAttachment([FromBody] DeleteRequest req)
         {
-      var userId = HttpContext.Session.GetInt32("UserId");
+            var userId = HttpContext.Session.GetInt32("UserId");
 
             using var conn = new SqlConnection(_connStr);
             conn.Open();
@@ -182,7 +184,7 @@ WHERE A.VoucherDate >= @StartDate
             getCmd.Parameters.AddWithValue("@VchNumber", req.VchNumber);
             var path = getCmd.ExecuteScalar()?.ToString();
 
-//            // Step 2 — Delete physical file from wwwroot
+            //            // Step 2 — Delete physical file from wwwroot
             if (!string.IsNullOrEmpty(path))
             {
                 var fullPath = Path.Combine(
@@ -192,105 +194,20 @@ WHERE A.VoucherDate >= @StartDate
             }
 
             // Step 3 — Delete record from DB
-          var delCmd = new SqlCommand(
-                "DELETE FROM AttachmentUpload WHERE VchNumber = @VchNumber", conn);
-           delCmd.Parameters.AddWithValue("@VchNumber", req.VchNumber);
+            var delCmd = new SqlCommand(
+                  "DELETE FROM AttachmentUpload WHERE VchNumber = @VchNumber", conn);
+            delCmd.Parameters.AddWithValue("@VchNumber", req.VchNumber);
             delCmd.ExecuteNonQuery();
 
-           return Json(new { success = true, message = "Attachment deleted successfully" });
-       }
-   }
+            return Json(new { success = true, message = "Attachment deleted successfully" });
+        }
+    }
+
+}
 
    // ✅ Request model for Delete
-    public class DeleteRequest
-   {
-       public int VchNumber { get; set; }
-   }
-}
-//using Microsoft.AspNetCore.Mvc;
-//using JSAPNEW.Services.Interfaces;
-
-//namespace JSAPNEW.Controllers
-//{
-//    public class AdminController : Controller
-//    {
-//        private readonly IAdminService _service;
-//        private readonly IWebHostEnvironment _hostingEnvironment;
-
-//        public AdminController(IAdminService service, IWebHostEnvironment hostingEnvironment)
-//        {
-//            _service = service;
-//            _hostingEnvironment = hostingEnvironment;
-//        }
-
-//        // ============================
-//        // LOAD PAGE
-//        // ============================
-//        public IActionResult AdminPage()
-//        {
-//            return View("AdminPage");
-//        }
-
-//        // ============================
-//        // SUMMARY CARDS
-//        // ============================
-//        [HttpGet]
-//        public IActionResult GetSummary()
-//        {
-//            var data = _service.GetSummary();
-//            return Json(new
-//            {
-//                totalBills = data.TotalBills,
-//                pendingMaker = data.PendingMaker,
-//                approvedChecker = data.ApprovedChecker,
-//                totalPaid = data.TotalPaid
-//            });
-//        }
-
-//        // ============================
-//        // MAKER ACTIVITY TAB
-//        // ============================
-//        [HttpGet]
-//        public IActionResult GetMakerActivity(string accountName, string fromDate, string toDate)
-//        {
-//            var data = _service.GetBillDetails(accountName, fromDate, toDate);
-//            return Json(data);
-//        }
-
-//        // ============================
-//        // CHECKER ACTIVITY TAB
-//        // ============================
-//        [HttpGet]
-//        public IActionResult GetCheckerActivity(string accountName, string fromDate, string toDate)
-//        {
-//            var data = _service.GetBillDetails(accountName, fromDate, toDate);
-//            return Json(data);
-//        }
-
-//        // ============================
-//        // INVOICE PAYMENT TAB
-//        // ============================
-//        [HttpGet]
-//        public IActionResult GetInvoiceActivity(string accountName, string fromDate, string toDate)
-//        {
-//            var data = _service.GetBillDetails(accountName, fromDate, toDate);
-//            return Json(data);
-//        }
-
-//        // ============================
-//        // DELETE ATTACHMENT — Admin only
-//        // ============================
-//        [HttpPost]
-//        public IActionResult DeleteAttachment([FromBody] DeleteRequest req)
-//        {
-//            var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-//            _service.DeleteAttachment(req.VchNumber, wwwrootPath);
-//            return Json(new { success = true, message = "Attachment deleted successfully" });
-//        }
-//    }
-
 //    public class DeleteRequest
-//    {
-//        public int VchNumber { get; set; }
-//    }
+//   {
+//       public int VchNumber { get; set; }
+//   }
 //}
