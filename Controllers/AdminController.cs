@@ -165,12 +165,17 @@ WHERE A.VoucherDate >= @StartDate
         [HttpGet]
         public IActionResult GetPaymentCheckerActivity(string accountName, string fromDate, string toDate)
         {
-            DateTime? from = DateTime.TryParse(fromDate, out var fromValue) ? fromValue : null;
-            DateTime? to = DateTime.TryParse(toDate, out var toValue) ? toValue : null;
-
-            var data = _paymentService.GetPaidBillDetails(from, to, accountName);
+            var data = FetchBillDetails(accountName, fromDate, toDate)
+                .Where(IsPaidBill)
+                .ToList();
 
             return Json(data);
+        }
+
+        private static bool IsPaidBill(object item)
+        {
+            var paymentStatus = item.GetType().GetProperty("paymentStatus")?.GetValue(item)?.ToString();
+            return string.Equals(paymentStatus?.Trim(), "Paid", StringComparison.OrdinalIgnoreCase);
         }
         // ✅ Delete Attachment — Admin Only
         [HttpPost]

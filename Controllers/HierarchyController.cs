@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using Dapper;
 using JSAPNEW.Models;
 using JSAPNEW.Services;
+using System.Security.Claims;
 
 namespace JSAPNEW.Controllers
 {
@@ -23,12 +24,54 @@ namespace JSAPNEW.Controllers
 
         #region Helper Methods
 
-        private int? GetUserId() => HttpContext.Session.GetInt32("userId");
+        private int? GetUserId()
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("userId");
+            if (sessionUserId.HasValue && sessionUserId.Value > 0)
+                return sessionUserId;
+
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("userId");
+
+            if (!int.TryParse(userIdClaim, out var userId) || userId <= 0)
+                return null;
+
+            HttpContext.Session.SetInt32("userId", userId);
+            return userId;
+        }
 
         private bool IsUserLoggedIn()
         {
             var userId = GetUserId();
             return userId.HasValue && userId > 0;
+        }
+
+        private async Task EnsureCompanySessionAsync(int userId)
+        {
+            if (userId <= 0)
+                return;
+
+            var hasSelectedCompany = (HttpContext.Session.GetInt32("selectedCompanyId") ?? 0) > 0;
+            var hasCompanyList = !string.IsNullOrWhiteSpace(HttpContext.Session.GetString("companyList"));
+            if (hasSelectedCompany && hasCompanyList)
+                return;
+
+            try
+            {
+                var cs = _configuration.GetConnectionString("DefaultConnection");
+                using var conn = new SqlConnection(cs);
+                var companies = (await conn.QueryAsync<CompanyModel>("EXEC jsfetchCompany @userId", new { userId })).ToList();
+                if (companies.Count == 0)
+                    return;
+
+                HttpContext.Session.SetString("companyList", System.Text.Json.JsonSerializer.Serialize(companies));
+                if (!hasSelectedCompany)
+                    HttpContext.Session.SetInt32("selectedCompanyId", companies[0].id);
+            }
+            catch
+            {
+                // Permission lookup still has its legacy defaults if company refresh fails.
+            }
         }
 
         private async Task<(string EmpId, string RoleName, bool IsAdmin)> GetUserInfoFromDatabaseAsync()
@@ -124,6 +167,7 @@ WHERE EmployeeCode = @EmployeeCode",
         {
             try
             {
+                await EnsureCompanySessionAsync(userId);
                 // Build list of companyIds to try: selected first, then all others from session
                 var selectedCompanyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
                 var companyIds = new List<int> { selectedCompanyId };
@@ -170,14 +214,15 @@ WHERE EmployeeCode = @EmployeeCode",
 
                         if (!modName.Equals("Employee Hierarchy", StringComparison.OrdinalIgnoreCase)) continue;
 
-                        var (role, rank) = permType switch
-                        {
-                            "Hierarchy_Admin" => ("Admin", 1),
-                            "Hierarchy_Master" => ("Admin", 1),
-                            "Hierarchy_HOD" => ("HOD", 2),
-                            "Hierarchy_SubHOD" => ("SubHOD", 3),
-                            _ => ("None", 99)
-                        };
+                        var (role, rank) =
+                            permType.Equals("Hierarchy_Admin", StringComparison.OrdinalIgnoreCase)
+                            || permType.Equals("Hierarchy_Master", StringComparison.OrdinalIgnoreCase)
+                                ? ("Admin", 1)
+                            : permType.Equals("Hierarchy_HOD", StringComparison.OrdinalIgnoreCase)
+                                ? ("HOD", 2)
+                            : permType.Equals("Hierarchy_SubHOD", StringComparison.OrdinalIgnoreCase)
+                                ? ("SubHOD", 3)
+                            : ("None", 99);
 
                         if (rank < bestRank) { best = role; bestRank = rank; }
                     }
@@ -200,6 +245,7 @@ WHERE EmployeeCode = @EmployeeCode",
         {
             try
             {
+                await EnsureCompanySessionAsync(userId);
                 var selectedCompanyId = HttpContext.Session.GetInt32("selectedCompanyId") ?? 1;
                 var companyIds = new List<int> { selectedCompanyId };
 
@@ -272,6 +318,16 @@ WHERE EmployeeCode = @EmployeeCode",
                 var userId = GetUserId()!.Value;
                 var userInfo = await GetUserInfoFromDatabaseAsync();
                 var (hierRole, _) = await GetHierarchyRoleInternalAsync(userId);
+                if (hierRole == "None" && !userInfo.IsAdmin)
+                {
+                    var currentEmployee = await GetCurrentHierarchyEmployeeAsync();
+                    hierRole = currentEmployee?.RoleTypeId switch
+                    {
+                        (int)RoleTypeEnum.HOD => "HOD",
+                        (int)RoleTypeEnum.SubHOD => "SubHOD",
+                        _ => hierRole
+                    };
+                }
 
                 // Explicit hierarchy permission takes priority over generic admin role.
                 bool isHierarchyAdmin = hierRole == "Admin"

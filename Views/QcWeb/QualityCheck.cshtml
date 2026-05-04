@@ -49,17 +49,16 @@
         }
 
         .main-layout {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
             gap: 20px;
             margin-bottom: 30px;
+            min-width: 0;
         }
 
-        .left-section {
-            flex: 0 0 70%;
-        }
-
+        .left-section,
         .right-section {
-            flex: 0 0 calc(30% - 20px);
+            min-width: 0;
         }
 
         .section {
@@ -199,7 +198,8 @@
         }
 
         .sub-parameter-row {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(160px, 1fr) auto auto;
             align-items: center;
             gap: 15px;
         }
@@ -279,6 +279,8 @@
 
             .input-group input[type="number"] {
                 flex: 1;
+                min-width: 0;
+                width: 100%;
                 padding: 8px 12px;
                 border: 1px solid #ced4da;
                 border-radius: 4px;
@@ -296,13 +298,14 @@
                 }
 
         .input-row {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 15px;
             margin-bottom: 15px;
         }
 
         .input-box {
-            flex: 1;
+            min-width: 0;
         }
 
             .input-box label {
@@ -411,25 +414,209 @@
             margin-bottom: 15px;
         }
 
+        body {
+            background: #f3f6fa;
+            padding: 24px;
+            color: #08233f;
+        }
+
+        .container {
+            width: 100%;
+            max-width: none;
+            border: 1px solid #dbe4ef;
+            box-shadow: 0 18px 44px rgba(8, 35, 63, 0.08);
+            overflow: visible;
+        }
+
+        .content {
+            padding: 24px;
+        }
+
+        .qc-page-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            margin-bottom: 22px;
+            padding: 20px 22px;
+            background: linear-gradient(135deg, #0b2c4d 0%, #224d73 100%);
+            color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .qc-page-title {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .qc-page-subtitle {
+            margin-top: 6px;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 13px;
+        }
+
+        .qc-page-badge {
+            flex: 0 0 auto;
+            padding: 9px 13px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .section {
+            background: #fff;
+            border-color: #dbe4ef;
+            border-radius: 8px;
+            box-shadow: 0 10px 28px rgba(8, 35, 63, 0.05);
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+            font-size: 18px;
+            letter-spacing: 0;
+        }
+
+        .section-title::before {
+            content: "";
+            width: 8px;
+            height: 22px;
+            margin-right: 10px;
+            border-radius: 6px;
+            background: #2d7dd2;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 36px;
+            font-weight: 700;
+            border: 1px solid transparent;
+        }
+
+        .btn:focus-visible,
+        input:focus-visible {
+            outline: 3px solid rgba(45, 125, 210, 0.25);
+            outline-offset: 2px;
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: #0b2c4d;
+            border-color: #cbd7e5;
+        }
+
+        .btn-secondary:hover {
+            background: #eef4fb;
+            color: #0b2c4d;
+        }
+
+        .btn-warning {
+            background: #27ae60;
+            color: #fff;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background: #219653;
+        }
+
+        .parameter-item,
+        .checkbox-item,
+        .sub-parameter {
+            border-radius: 8px;
+        }
+
+        .checkbox-item {
+            min-height: 44px;
+        }
+
+        .form-control,
+        .input-group input[type="number"],
+        .input-box input {
+            min-height: 40px;
+            border-color: #cbd7e5;
+            border-radius: 7px;
+        }
+
+        .parameter-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .parameter-header,
+        .parameter-controls,
+        .sub-parameter,
+        .sub-parameter-row,
+        .mandatory-checkbox {
+            min-width: 0;
+        }
+
+        .mandatory-checkbox {
+            white-space: normal;
+        }
+
+        .right-section .section {
+            overflow: hidden;
+        }
+
+        .right-section .input-group {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            align-items: stretch;
+            gap: 6px;
+        }
+
+        .right-section .input-group label {
+            min-width: 0;
+            line-height: 1.25;
+        }
+
+        .right-section .input-group input[type="number"] {
+            width: 100%;
+            max-width: 100%;
+        }
+
         @@media (max-width: 1024px) {
             .main-layout {
-                flex-direction: column;
-            }
-
-            .left-section,
-            .right-section {
-                flex: 0 0 100%;
+                grid-template-columns: 1fr;
             }
         }
 
         @@media (max-width: 768px) {
             body {
-                padding: 10px;
+                padding: 12px;
+            }
+
+            .qc-page-heading {
+                align-items: flex-start;
+                flex-direction: column;
+                padding: 18px;
+            }
+
+            .qc-page-title {
+                font-size: 21px;
+            }
+
+            .qc-page-badge {
+                width: 100%;
+                text-align: center;
             }
 
             .content,
             .section {
                 padding: 16px;
+            }
+
+            .container {
+                overflow: visible;
             }
 
             .top-actions,
@@ -449,6 +636,7 @@
 
             .actions .btn,
             .parameter-controls .btn,
+            .parameter-actions .btn,
             .sub-parameter-row .btn {
                 width: 100%;
             }
@@ -473,6 +661,14 @@
             <input type="hidden" id="createdBy" value="@qcUserId" />
             <input type="hidden" id="formNumber" value="" />
 
+            <div class="qc-page-heading">
+                <div>
+                    <div class="qc-page-title">Quality Check Setup</div>
+                    <div class="qc-page-subtitle">Maintain parameters, mandatory documents, and pass rules in one place.</div>
+                </div>
+                <div class="qc-page-badge">Edit Mode</div>
+            </div>
+
             <div class="main-layout">
                 <!-- Left Section - Parameters -->
                 <div class="left-section">
@@ -486,7 +682,7 @@
                             <!-- Parameters will be loaded here -->
                         </div>
 
-                        <div style="margin-top:15px; display:flex; gap:10px;">
+                        <div class="parameter-actions">
                             <button type="button" class="btn btn-primary" id="addParameterBtn" onclick="addParameter()">
                                 + Add Parameter
                             </button>

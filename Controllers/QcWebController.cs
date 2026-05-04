@@ -2,6 +2,7 @@
 using JSAPNEW.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace JSAPNEW.Controllers
 {
@@ -20,8 +21,8 @@ namespace JSAPNEW.Controllers
 
         private async Task<bool> PrepareQualityCheckViewAsync()
         {
-            var userId = HttpContext.Session.GetInt32("userId");
-            var selectedCompanyId = HttpContext.Session.GetInt32("selectedCompanyId");
+            var userId = GetUserId();
+            var selectedCompanyId = await GetSelectedCompanyIdAsync(userId ?? 0);
 
             if (!userId.HasValue || userId.Value <= 0 || !selectedCompanyId.HasValue || selectedCompanyId.Value <= 0)
             {
@@ -39,6 +40,47 @@ namespace JSAPNEW.Controllers
                 : $"QC-{userId.Value}-{DateTime.Now:yyyyMMddHHmmss}";
 
             return true;
+        }
+
+        private int? GetUserId()
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("userId");
+            if (sessionUserId.HasValue && sessionUserId.Value > 0)
+                return sessionUserId;
+
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("userId");
+
+            if (!int.TryParse(userIdClaim, out var userId) || userId <= 0)
+                return null;
+
+            HttpContext.Session.SetInt32("userId", userId);
+            return userId;
+        }
+
+        private async Task<int?> GetSelectedCompanyIdAsync(int userId)
+        {
+            var selectedCompanyId = HttpContext.Session.GetInt32("selectedCompanyId");
+            if (selectedCompanyId.HasValue && selectedCompanyId.Value > 0)
+                return selectedCompanyId;
+
+            if (userId <= 0)
+                return null;
+
+            try
+            {
+                var companies = (await _userService.GetCompanyAsync(userId))?.ToList() ?? new();
+                if (companies.Count == 0)
+                    return null;
+
+                HttpContext.Session.SetInt32("selectedCompanyId", companies[0].id);
+                HttpContext.Session.SetString("companyList", Newtonsoft.Json.JsonConvert.SerializeObject(companies));
+                return companies[0].id;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public async Task<IActionResult> QualityCheck()
