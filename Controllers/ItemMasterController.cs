@@ -1962,5 +1962,28 @@ namespace JSAPNEW.Controllers
                 return StatusCode(500, new { Success = false, Message = "Internal server error" });
             }
         }
+        // add new  method for rejected item to creator //
+        [HttpGet("GetRejectedItemsForCreator")]
+        public async Task<ActionResult> GetRejectedItemsForCreator(int userId, int? company)
+        {
+            try
+            {
+                var data = await _ItemMasterService.GetRejectedItemsForCreatorAsync(userId, company);
+
+                if (data == null || !data.Any())
+                {
+                    _Itemmasterlogger.LogInformation("No rejected items found for creator");
+                    return NotFound(new { Success = false, Message = "No rejected items found" });
+                }
+
+                _Itemmasterlogger.LogInformation("Rejected items for creator retrieved successfully.");
+                return Ok(new { Success = true, Data = data });
+            }
+            catch (Exception ex)
+            {
+                _Itemmasterlogger.LogError(ex, "Error occurred while retrieving rejected items for creator.");
+                return StatusCode(500, new { Success = false, Message = ex.Message });
+            }
+        }
     }
 }

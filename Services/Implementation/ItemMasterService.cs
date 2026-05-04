@@ -3060,5 +3060,25 @@ namespace JSAPNEW.Services.Implementation
                 throw new Exception("Error Executing : ", ex);
             }
         }
+        // new service for rejected item to creator //
+        public async Task<IEnumerable<RejectedItemsForCreatorModel>> GetRejectedItemsForCreatorAsync(int userId, int? company)
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+
+                var parameters = new DynamicParameters();
+                parameters.Add("@userId", userId);
+                parameters.Add("@company", company);
+
+                var result = await connection.QueryAsync<RejectedItemsForCreatorModel>(
+                    "[imc].[jsGetRejectedItemsForCreator]",
+                    parameters,
+                    commandType: CommandType.StoredProcedure
+                );
+
+                return result;
+            }
+        }
     }
 }

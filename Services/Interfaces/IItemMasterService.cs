@@ -71,6 +71,7 @@ namespace JSAPNEW.Services.Interfaces
         Task<IEnumerable<UserIdsForNotificationModel>> GetBkdtUserIdsSendNotificatiosAsync(int flowId);
         Task<PrdoModels> SendPendingBkdtCountNotificationAsync();
         Task<IEnumerable<AfterCreatedRequestSendNotificationToUser>> GetBKDTCurrentUsersSendNotificationAsync(int userDocumentId);
+        Task<IEnumerable<RejectedItemsForCreatorModel>> GetRejectedItemsForCreatorAsync(int userId, int? company);
 
         // --------------------------- BKDT end --------------------------------
         Task<ItemMasterModel> InsertFullItemDataAsync(InsertFullItemDataModel model);
