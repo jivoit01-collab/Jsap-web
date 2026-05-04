@@ -369,8 +369,10 @@ app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Login}/{action=Index}/{id?}");
+    pattern: "{controller=DashboardWeb}/{action=Index}/{id?}");
 app.MapControllers();
+
+app.MapFallbackToController("Index", "DashboardWeb");
 
 app.MapGet("/health", () => Results.Ok(new
 {
