@@ -13,7 +13,7 @@ namespace JSAPNEW.Controllers
 
             if (userId == null || selectedCompanyId == null)
             {
-                return RedirectToAction("Login", "Account");
+                return RedirectToAction("Index", "Login");
             }
 
             ViewBag.CompanyId = selectedCompanyId;

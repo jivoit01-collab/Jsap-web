@@ -229,6 +229,182 @@ namespace JSAPNEW.Controllers
             }
         }
 
+        [HttpGet("GetAllBudgetInsight")]
+        public async Task<IActionResult> GetBudgetInsight(int company, string month)
+        {
+            try
+            {
+                if (company <= 0)
+                    return BadRequest(new { success = false, message = "Company is required" });
+
+                var data = (await _userService.GetBudgetInsightAsync(company, month))?.ToList() ?? new List<GetAllBudgetInsight>();
+                if (data.Count == 0)
+                    return Ok(new { success = true, data });
+
+                return Ok(new { success = true, data });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching budget insight for reports.");
+                return StatusCode(500, new { success = false, message = "An error occurred while loading budget insight" });
+            }
+        }
+
+        [HttpGet("GetAllBudgetSummaryAmount")]
+        public async Task<IActionResult> GetAllBudgetSummaryAmount(int company, string month)
+        {
+            try
+            {
+                if (company <= 0)
+                    return BadRequest(new { success = false, message = "Company is required" });
+
+                var insightData = (await _userService.GetBudgetInsightAsync(company, month))?.ToList() ?? new List<GetAllBudgetInsight>();
+                var finalResult = new List<object>();
+
+                foreach (var user in insightData)
+                {
+                    var combinedBudget = await _userService.GetCombinedBudgetsAsync(user.UserID, company, month);
+                    var budgetArray = combinedBudget.BudgetData.Select(b =>
+                    {
+                        var detail = combinedBudget.BudgetDetails.FirstOrDefault(x => x.BudgetHeader?.BudgetId == b.BudgetId);
+
+                        return new
+                        {
+                            budgetId = b.BudgetId,
+                            objType = b.objType,
+                            company = b.company,
+                            docEntry = b.DocEntry,
+                            objectName = b.ObjectName,
+                            cardCode = b.CardCode,
+                            cardName = b.CardName,
+                            docDate = b.DocDate?.ToString(),
+                            totalAmount = b.TotalAmount,
+                            status = b.Status,
+                            header = new
+                            {
+                                templateId = detail?.BudgetHeader?.TemplateId,
+                                totalStage = detail?.BudgetHeader?.TotalStage,
+                                currentStageId = detail?.BudgetHeader?.CurrentStageId,
+                                currentStatus = detail?.BudgetHeader?.CurrentStatus
+                            },
+                            lines = detail?.BudgetLines?.Select(line => new
+                            {
+                                budget = line.Budget,
+                                subBudget = line.SubBudget,
+                                variety = line.variety,
+                                acctCode = line.AcctCode,
+                                acctName = line.AcctName,
+                                lineNum = line.LineNum,
+                                amount = line.Amount,
+                                state = line.State,
+                                effectMonth = line.EffectMonth,
+                                lineRemarks = line.LineRemarks,
+                                comments = line.Comments
+                            }).ToList()
+                        };
+                    }).ToList();
+
+                    finalResult.Add(new
+                    {
+                        userId = user.UserID,
+                        userName = user.UserName,
+                        budget = budgetArray
+                    });
+                }
+
+                return Ok(new { success = true, data = finalResult });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching budget summary amount for reports.");
+                return StatusCode(500, new { success = false, message = "An error occurred while loading budget summary" });
+            }
+        }
+
+        [HttpGet("getpendingbudgetwithdetails")]
+        public async Task<IActionResult> GetPendingBudgetWithDetails([FromQuery(Name = "userId")] int reportUserId, int company, string month)
+        {
+            return await GetBudgetDetailsForReport(
+                reportUserId,
+                company,
+                month,
+                () => _userService.GetPendingBudgetWithDetailsAsync(reportUserId, company, month));
+        }
+
+        [HttpGet("getapprovedbudgetwithdetails")]
+        public async Task<IActionResult> GetApprovedBudgetWithDetails([FromQuery(Name = "userId")] int reportUserId, int company, string month)
+        {
+            return await GetBudgetDetailsForReport(
+                reportUserId,
+                company,
+                month,
+                () => _userService.GetApprovedBudgetWithDetailsAsync(reportUserId, company, month));
+        }
+
+        [HttpGet("getrejectedbudgetwithdetails")]
+        public async Task<IActionResult> GetRejectedBudgetWithDetails([FromQuery(Name = "userId")] int reportUserId, int company, string month)
+        {
+            return await GetBudgetDetailsForReport(
+                reportUserId,
+                company,
+                month,
+                () => _userService.GetRejectedBudgetWithDetailsAsync(reportUserId, company, month));
+        }
+
+        [HttpGet("GetBudgetApprovalFlow")]
+        public async Task<IActionResult> GetBudgetApprovalFlow(int budgetId)
+        {
+            try
+            {
+                if (budgetId <= 0)
+                    return BadRequest(new { success = false, message = "Budget ID is required" });
+
+                var data = (await _userService.GetBudgetApprovalFlowAsync(budgetId))?.ToList() ?? new List<BudgetApprovalFlowModel>();
+                return Ok(new { success = true, data });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching budget approval flow.");
+                return StatusCode(500, new { success = false, message = "An error occurred while loading approval flow" });
+            }
+        }
+
+        private async Task<IActionResult> GetBudgetDetailsForReport<TBudget>(
+            int reportUserId,
+            int company,
+            string month,
+            Func<Task<IEnumerable<TBudget>>> loader)
+        {
+            try
+            {
+                if (reportUserId <= 0 || company <= 0)
+                    return BadRequest(new { success = false, message = "User and company are required" });
+
+                var data = (await loader())?.ToList() ?? new List<TBudget>();
+                foreach (var budget in data)
+                {
+                    var budgetIdProperty = budget?.GetType().GetProperty("BudgetId");
+                    var nextApproverProperty = budget?.GetType().GetProperty("NextApprover");
+                    if (budgetIdProperty == null || nextApproverProperty == null)
+                        continue;
+
+                    var budgetIdValue = budgetIdProperty.GetValue(budget);
+                    if (budgetIdValue is int budgetId && budgetId > 0)
+                    {
+                        var nextApprovers = await _userService.GetNextApproverAsync(budgetId);
+                        nextApproverProperty.SetValue(budget, nextApprovers);
+                    }
+                }
+
+                return Ok(new { success = true, data });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching budget details for reports.");
+                return StatusCode(500, new { success = false, message = "An error occurred while loading budget details" });
+            }
+        }
+
         private void SetRefreshTokenCookie(string refreshToken)
         {
             DeleteAllRefreshTokenCookies();

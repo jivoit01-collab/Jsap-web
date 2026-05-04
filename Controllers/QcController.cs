@@ -182,11 +182,11 @@ namespace JSAPNEW.Controllers
         }
 
         [HttpGet("GetFormUsingCreatedBy")]
-        public async Task<IActionResult> GetFormUsingCreatedBy(string userId)
+        public async Task<IActionResult> GetFormUsingCreatedBy([FromQuery(Name = "userId")] string qcUserId)
         {
             try
             {
-                var result = await _QcService.GetFormUsingCreatedByAsync(userId);
+                var result = await _QcService.GetFormUsingCreatedByAsync(qcUserId);
                 return Ok(new
                 {
                     Success = true,
@@ -364,11 +364,11 @@ namespace JSAPNEW.Controllers
         }
 
         [HttpGet("GetDocumentInsights")]
-        public async Task<IActionResult> GetDocumentInsights(int userId, int companyId, string month)
+        public async Task<IActionResult> GetDocumentInsights([FromQuery(Name = "userId")] int qcUserId, int companyId, string month)
         {
             try
             {
-                var result = await _QcService.GetDocumentInsightsAsync(userId, companyId, month);
+                var result = await _QcService.GetDocumentInsightsAsync(qcUserId, companyId, month);
                 return Ok(new
                 {
                     Success = true,
@@ -393,11 +393,11 @@ namespace JSAPNEW.Controllers
         }
 
         [HttpGet("GetPendingDocuments")]
-        public async Task<IActionResult> GetPendingDocuments(int userId, int companyId, string month)
+        public async Task<IActionResult> GetPendingDocuments([FromQuery(Name = "userId")] int qcUserId, int companyId, string month)
         {
             try
             {
-                var result = await _QcService.GetPendingDocumentsAsync(userId, companyId, month);
+                var result = await _QcService.GetPendingDocumentsAsync(qcUserId, companyId, month);
                 return Ok(new
                 {
                     Success = true,
@@ -421,11 +421,11 @@ namespace JSAPNEW.Controllers
             }
         }
         [HttpGet("GetApprovedDocuments")]
-        public async Task<IActionResult> GetApprovedDocuments(int userId, int companyId, string month)
+        public async Task<IActionResult> GetApprovedDocuments([FromQuery(Name = "userId")] int qcUserId, int companyId, string month)
         {
             try
             {
-                var result = await _QcService.GetApprovedDocumentsAsync(userId, companyId, month);
+                var result = await _QcService.GetApprovedDocumentsAsync(qcUserId, companyId, month);
                 return Ok(new
                 {
                     Success = true,
@@ -449,11 +449,11 @@ namespace JSAPNEW.Controllers
             }
         }
         [HttpGet("GetRejectedDocuments")]
-        public async Task<IActionResult> GetRejectedDocuments(int userId, int companyId, string month)
+        public async Task<IActionResult> GetRejectedDocuments([FromQuery(Name = "userId")] int qcUserId, int companyId, string month)
         {
             try
             {
-                var result = await _QcService.GetRejectedDocumentsAsync(userId, companyId, month);
+                var result = await _QcService.GetRejectedDocumentsAsync(qcUserId, companyId, month);
                 return Ok(new
                 {
                     Success = true,
@@ -478,11 +478,11 @@ namespace JSAPNEW.Controllers
         }
 
         [HttpGet("GetTotalQcDocuments")]
-        public async Task<IActionResult> GetTotalQcDocuments(int userId, int companyId, string month)
+        public async Task<IActionResult> GetTotalQcDocuments([FromQuery(Name = "userId")] int qcUserId, int companyId, string month)
         {
             try
             {
-                var result = await _QcService.GetAllQcDocumentAsync(userId, companyId, month);
+                var result = await _QcService.GetAllQcDocumentAsync(qcUserId, companyId, month);
                 return Ok(new
                 {
                     Success = true,
@@ -616,10 +616,11 @@ namespace JSAPNEW.Controllers
                 var result = await _QcService.GetItemDataIdAsync(docEntry, lineNum);
                 if (result == null || !result.Any())
                 {
-                    return NotFound(new
+                    return Ok(new
                     {
-                        Sucess = false,
-                        Message = "no data Found"
+                        Success = true,
+                        Data = Array.Empty<object>(),
+                        Message = "No data found"
                     });
                 }
 

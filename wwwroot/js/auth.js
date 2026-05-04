@@ -323,7 +323,7 @@
         document.addEventListener("DOMContentLoaded", function () {
             setupJQueryAuth();
             if (!window.location.pathname.toLowerCase().includes("/login")) {
-                initializeAuth().catch(function () { });
+                initializeAuth({ redirectOnFailure: false }).catch(function () { });
             }
         });
     }

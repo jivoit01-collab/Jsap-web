@@ -1,5 +1,7 @@
 ﻿@{
     ViewBag.Title = "Define Parameter for Quality Check";
+    var qcUserId = ViewBag.UserId ?? ViewBag.userId ?? 0;
+    var qcFormNumber = (ViewBag.LotNumber ?? $"QC-{qcUserId}-{DateTime.Now:yyyyMMddHHmmss}").ToString().ToUpperInvariant();
 }
 
 <!DOCTYPE html>
@@ -135,7 +137,14 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             padding: 15px;
+            transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
         }
+
+            .parameter-item:hover {
+                border-color: #b8c8d8;
+                box-shadow: 0 10px 24px rgba(11, 44, 77, 0.08);
+                transform: translateY(-1px);
+            }
 
         .parameter-header {
             display: flex;
@@ -160,6 +169,11 @@
             transition: all 0.3s;
             white-space: nowrap;
         }
+
+            .btn:hover:not(:disabled) {
+                transform: translateY(-1px);
+                box-shadow: 0 8px 18px rgba(11, 44, 77, 0.16);
+            }
 
         .btn-primary {
             background-color: #0b2c4d;
@@ -426,6 +440,40 @@
                 flex: 0 0 100%;
             }
         }
+
+        @@media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .content,
+            .section {
+                padding: 16px;
+            }
+
+            .parameter-header,
+            .sub-parameter-row,
+            .input-row,
+            .input-group,
+            .actions {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .input-group label {
+                min-width: 0;
+            }
+
+            .actions .btn,
+            .parameter-header .btn,
+            .sub-parameter-row .btn {
+                width: 100%;
+            }
+
+            .sub-parameter {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -439,8 +487,8 @@
     <div class="container">
         <div class="content">
 
-            <input type="hidden" id="createdBy" value="@ViewBag.userId" />
-            <input type="hidden" id="formNumber" value="@ViewBag.LotNumber.ToString().ToUpper()" />
+            <input type="hidden" id="createdBy" value="@qcUserId" />
+            <input type="hidden" id="formNumber" value="@qcFormNumber" />
             <div class="main-layout">
                 <!-- Left Section - Define Parameter (70%) -->
                 <div class="left-section">
@@ -768,7 +816,7 @@
                 // Success
                 alert('All data saved successfully!');
                 console.log('Complete data saved successfully');
-                location.reload();
+                window.location.href = '@Url.Action("QualityCheck", "QcWeb")';
                 // Optionally redirect to another page
                 // window.location.href = '@Url.Action("Index", "QualityCheck")';
 

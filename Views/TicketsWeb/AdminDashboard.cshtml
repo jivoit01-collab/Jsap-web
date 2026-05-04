@@ -8,6 +8,8 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
+<link rel="stylesheet" href="~/css/tickets-ui.css" />
+
 <style>
     .admin-container {
         max-width: 1400px;
@@ -619,7 +621,7 @@
 
 <script>
     const API_BASE_URL = '/api/Tickets';
-    const adminUserId = sessionStorage.getItem("userId") || @ViewBag.UserId;
+    const adminUserId = @(ViewBag.UserId ?? 0);
     let allTickets = [];
     let users = [];
     let currentStatus = '';

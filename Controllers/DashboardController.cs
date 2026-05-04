@@ -473,7 +473,7 @@ namespace JSAPNEW.Controllers
 
                 if (accounts == null || !accounts.Any())
                 {
-                    return NotFound(new { message = "No accounts found" });
+                    return Ok(Array.Empty<budgetAcctModel>());
                 }
 
                 return Ok(accounts);
@@ -494,7 +494,7 @@ namespace JSAPNEW.Controllers
 
                 if (budgets == null || !budgets.Any())
                 {
-                    return NotFound(new { message = "No budgets found" });
+                    return Ok(Array.Empty<budgetBudgetModel>());
                 }
 
                 return Ok(budgets);
@@ -514,7 +514,7 @@ namespace JSAPNEW.Controllers
 
                 if (budgetData == null || !budgetData.Any())
                 {
-                    return NotFound(new { message = "No budget data found" });
+                    return Ok(Array.Empty<AllbudgetDataModel>());
                 }
 
                 return Ok(budgetData);

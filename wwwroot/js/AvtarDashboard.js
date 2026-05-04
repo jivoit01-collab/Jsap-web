@@ -345,6 +345,62 @@ function hideLoader() {
     document.getElementById("loaderOverlay").style.display = "none";
 }
 
+async function fetchDashboardArray(url) {
+    const response = await fetch(url, { credentials: 'include' });
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (Array.isArray(result)) return result;
+    if (Array.isArray(result.data)) return result.data;
+    if (Array.isArray(result.Data)) return result.Data;
+    return [];
+}
+
+function normalizeMonthValue(value) {
+    if (!value) return '';
+    const raw = value.toString().trim();
+    const numericMatch = raw.match(/^(\d{1,2})[-/](\d{4})$/);
+    if (numericMatch) {
+        return `${numericMatch[1].padStart(2, '0')}-${numericMatch[2]}`;
+    }
+
+    const namedMatch = raw.match(/^([A-Za-z]{3,9})[-\s/](\d{4})$/);
+    if (namedMatch) {
+        const monthIndex = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+            .indexOf(namedMatch[1].slice(0, 3).toLowerCase());
+        if (monthIndex >= 0) {
+            return `${String(monthIndex + 1).padStart(2, '0')}-${namedMatch[2]}`;
+        }
+    }
+
+    return raw;
+}
+
+function normalizeBudgetRow(row) {
+    const amount = row.amount ?? row.Amount ?? row.AMOUNT ?? 0;
+    return {
+        ...row,
+        branch: (row.branch ?? row.Branch ?? '').toString().trim(),
+        acctName: (row.acctName ?? row.AcctName ?? '').toString().trim(),
+        budget: (row.budget ?? row.Budget ?? row.BUDGET ?? '').toString().trim(),
+        currentMonth: normalizeMonthValue(row.currentMonth ?? row.CurrentMonth ?? row.CURRENTMONTH ?? row.effectMonth ?? row.EffectMonth),
+        amount: Number(amount) || 0
+    };
+}
+
+function showDashboardMessage(message) {
+    const container = document.getElementById('table-container-1');
+    const emptyState = document.getElementById('empty-state-1');
+    if (container) container.style.display = 'none';
+    if (emptyState) {
+        emptyState.style.display = 'flex';
+        const text = emptyState.querySelector('p');
+        if (text) text.textContent = message;
+    }
+}
+
 // ========================================
 // DATE DISPLAY
 // ========================================
@@ -370,11 +426,20 @@ async function branchChange() {
         }, index * 100);
     });
 
-    await populateLedgers(branch);
-    await populateBudgets(branch);
-    populateMonths();
-    await getBudgetData(branch);
-    setupTable2(branch);
+    selectedBudgets = [];
+    selectedLedgers = [];
+    selectedMonths = [];
+
+    try {
+        await populateLedgers(branch);
+        await populateBudgets(branch);
+        populateMonths();
+        await getBudgetData(branch);
+        await setupTable2(branch);
+    } catch (err) {
+        console.error("Error loading dashboard:", err);
+        showDashboardMessage("Unable to load dashboard data. Please refresh or try another branch.");
+    }
 }
 
 // ========================================
@@ -387,10 +452,11 @@ async function getLedgers(branch) {
         : `/api/Dashboard/GetUniqueAccounts?branch=${branch}`;
 
     try {
-        const response = await fetch(url);
-        if (!response.ok) return;
-        const result = await response.json();
-        result.forEach(acct => ledgers.push(acct.acctName));
+        const result = await fetchDashboardArray(url);
+        result.forEach(acct => {
+            const name = (acct.acctName ?? acct.AcctName ?? '').toString().trim();
+            if (name) ledgers.push(name);
+        });
     } catch (err) {
         console.error("Error fetching ledgers:", err);
     }
@@ -403,10 +469,11 @@ async function getBudgets(branch) {
         : `/api/Dashboard/GetUniqueBudgets?branch=${branch}`;
 
     try {
-        const response = await fetch(url);
-        if (!response.ok) return;
-        const result = await response.json();
-        result.forEach(budget => budgets.push(budget.budget));
+        const result = await fetchDashboardArray(url);
+        result.forEach(budget => {
+            const name = (budget.budget ?? budget.Budget ?? '').toString().trim();
+            if (name) budgets.push(name);
+        });
     } catch (err) {
         console.error("Error fetching budgets:", err);
     }
@@ -420,12 +487,12 @@ async function getBudgetData(branch) {
     budgetData = [];
 
     try {
-        const response = await fetch(url);
-        if (!response.ok) return;
-        budgetData = await response.json();
+        const result = await fetchDashboardArray(url);
+        budgetData = result.map(normalizeBudgetRow);
         filterByCompany();
     } catch (err) {
         console.error("Error fetching budget data:", err);
+        showDashboardMessage("Unable to load budget data. Please try again.");
     } finally {
         hideLoader();
     }
@@ -536,8 +603,10 @@ function populateMonths() {
 // ========================================
 async function filterByCompany() {
     const branch = document.getElementById("company-selector").value;
-    const activeBudgets = selectedBudgets.length > 0 ? [...selectedBudgets] : [...budgets];
-    const activeLedgers = selectedLedgers.length > 0 ? [...selectedLedgers] : [...ledgers];
+    const fallbackBudgets = budgets.length > 0 ? budgets : [...new Set(budgetData.map(r => r.budget).filter(Boolean))];
+    const fallbackLedgers = ledgers.length > 0 ? ledgers : [...new Set(budgetData.map(r => r.acctName).filter(Boolean))];
+    const activeBudgets = selectedBudgets.length > 0 ? [...selectedBudgets] : fallbackBudgets;
+    const activeLedgers = selectedLedgers.length > 0 ? [...selectedLedgers] : fallbackLedgers;
     const activeMonths = selectedMonths.length > 0 ? [...selectedMonths] : [];
 
     let filtered = [...budgetData];
@@ -545,8 +614,12 @@ async function filterByCompany() {
     if (branch && branch !== "ALL" && branch !== "") {
         filtered = filtered.filter(r => r.branch === branch);
     }
-    filtered = filtered.filter(r => activeBudgets.includes(r.budget));
-    filtered = filtered.filter(r => activeLedgers.includes(r.acctName));
+    if (activeBudgets.length > 0) {
+        filtered = filtered.filter(r => activeBudgets.includes(r.budget));
+    }
+    if (activeLedgers.length > 0) {
+        filtered = filtered.filter(r => activeLedgers.includes(r.acctName));
+    }
     if (activeMonths.length > 0) {
         filtered = filtered.filter(r => activeMonths.includes(r.currentMonth));
     }
@@ -1121,12 +1194,7 @@ function resetFilters() {
     document.getElementById("budget-count").textContent = "0 selected";
     document.getElementById("month-count").textContent = "0 selected";
 
-    document.getElementById("master-table").innerHTML = "";
-
-    const container = document.getElementById('table-container-1');
-    const emptyState = document.getElementById('empty-state-1');
-    if (container) container.style.display = 'none';
-    if (emptyState) emptyState.style.display = 'flex';
+    filterByCompany();
 }
 
 // ========================================
@@ -1193,9 +1261,9 @@ function setYear() {
     filterByMonths();
 }
 
-function setupTable2(branch) {
-    setupBudgetFilter(branch);
-    getFullYear(2020, 2025);
+async function setupTable2(branch) {
+    await setupBudgetFilter(branch);
+    getFullYear(2020, new Date().getFullYear());
     setYear();
 }
 
@@ -1340,4 +1408,5 @@ function formatMonth(monthValue) {
 document.addEventListener("DOMContentLoaded", () => {
     console.log("Budget Dashboard Initialized");
     updateCurrentDate();
+    branchChange();
 });

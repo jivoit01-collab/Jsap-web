@@ -8,6 +8,8 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
+<link rel="stylesheet" href="~/css/tickets-ui.css" />
+
 <style>
     .assigned-container {
         max-width: 1400px;
@@ -774,8 +776,8 @@
 
 <script>
     const API_BASE_URL = '/api/Tickets';
-    const userId = sessionStorage.getItem("userId") || @ViewBag.UserId;
-    const userName = sessionStorage.getItem("userName") || "User";
+    const userId = @(ViewBag.UserId ?? 0);
+    const userName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Context.Session.GetString("username") ?? Context.Session.GetString("loginUser") ?? "User"));
 
     let allTickets = [];
     let currentTicketId = null;

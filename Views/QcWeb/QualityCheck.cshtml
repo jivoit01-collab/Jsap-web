@@ -1,4 +1,7 @@
 ﻿<!DOCTYPE html>
+@{
+    var qcUserId = ViewBag.UserId ?? ViewBag.userId ?? 0;
+}
 <html>
 <head>
     <meta charset="utf-8" />
@@ -87,7 +90,14 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             padding: 15px;
+            transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
         }
+
+            .parameter-item:hover {
+                border-color: #b8c8d8;
+                box-shadow: 0 10px 24px rgba(11, 44, 77, 0.08);
+                transform: translateY(-1px);
+            }
 
         .parameter-header {
             display: flex;
@@ -117,6 +127,11 @@
             transition: all 0.3s;
             white-space: nowrap;
         }
+
+            .btn:hover:not(:disabled) {
+                transform: translateY(-1px);
+                box-shadow: 0 8px 18px rgba(11, 44, 77, 0.16);
+            }
 
         .btn-primary {
             background-color: #0b2c4d;
@@ -406,6 +421,42 @@
                 flex: 0 0 100%;
             }
         }
+
+        @@media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .content,
+            .section {
+                padding: 16px;
+            }
+
+            .top-actions,
+            .parameter-header,
+            .parameter-controls,
+            .sub-parameter-row,
+            .input-row,
+            .input-group,
+            .actions {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .input-group label {
+                min-width: 0;
+            }
+
+            .actions .btn,
+            .parameter-controls .btn,
+            .sub-parameter-row .btn {
+                width: 100%;
+            }
+
+            .sub-parameter {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -419,7 +470,7 @@
     <div class="container">
         <div class="content">
             <input type="hidden" id="formId" value="" />
-            <input type="hidden" id="createdBy" value="84" />
+            <input type="hidden" id="createdBy" value="@qcUserId" />
             <input type="hidden" id="formNumber" value="" />
 
             <div class="main-layout">
@@ -428,6 +479,7 @@
                     <div class="section">
                         <div class="top-actions">
                             <div class="section-title">Parameters & Sub-Parameters</div>
+                            <button type="button" class="btn btn-primary" onclick="window.location.href='@Url.Action("AddQC", "QcWeb")'">+ New QC</button>
                         </div>
 
                         <div class="parameter-list" id="parameterList">
@@ -543,18 +595,28 @@
                     populateFormData(result.data);
                 } else {
                     console.warn('No form data returned');
-                    alert('No form data available');
+                    renderEmptyState('No QC form data found. Create a new QC setup to start.');
                 }
             } catch (err) {
                 console.error('Error loading form data:', err);
-                alert('Error loading form data: ' + err.message);
+                renderEmptyState('Unable to load QC data right now. Please try again.');
             } finally {
                 hideLoading();
             }
         }
 
+        function renderEmptyState(message) {
+            document.getElementById('parameterList').innerHTML = `
+                <div class="parameter-item" style="text-align:center; padding:28px;">
+                    <div style="font-weight:600; color:#0b2c4d; margin-bottom:8px;">${escapeHtml(message)}</div>
+                    <button type="button" class="btn btn-primary" onclick="window.location.href='@Url.Action("AddQC", "QcWeb")'">+ New QC</button>
+                </div>`;
+            document.getElementById('updateBtn').disabled = true;
+        }
+
         // Populate form with loaded data
         function populateFormData(data) {
+            document.getElementById('updateBtn').disabled = false;
             const form = data.form;
             if (form) {
                 document.getElementById('formId').value = form.formId || '';
@@ -618,6 +680,8 @@
                 Object.values(grouped)
                     .sort((a, b) => a.displayOrder - b.displayOrder)
                     .forEach(p => renderParameter(p));
+            } else {
+                renderEmptyState('No parameters are configured for this QC form.');
             }
         }
 

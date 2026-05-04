@@ -17,56 +17,49 @@ namespace JSAPNEW.Controllers
             _inventoryAuditService = inventoryAuditService;
             _userService = userService;
         }
-        public async Task<IActionResult> QualityCheck()
+
+        private async Task<bool> PrepareQualityCheckViewAsync()
         {
             var userId = HttpContext.Session.GetInt32("userId");
             var selectedCompanyId = HttpContext.Session.GetInt32("selectedCompanyId");
 
-            if (selectedCompanyId == null)
+            if (!userId.HasValue || userId.Value <= 0 || !selectedCompanyId.HasValue || selectedCompanyId.Value <= 0)
             {
-                // Redirect or show message
-                return RedirectToAction("Index", "Dashboard");
+                return false;
             }
-
-            ViewBag.CompanyId = selectedCompanyId;
-            int company = selectedCompanyId.Value;
-            int UserId = userId ?? 0;
-
-            // ✅ Call stored procedure through service
-            /* var uniqueUsernameResponse = await _inventoryAuditService.GenerateUniqueUsernameAsync(UserId);
-             if (!uniqueUsernameResponse.Success)
-             {
-                 // If procedure fails, show message
-                 ViewBag.LotNumber = $"Error: {uniqueUsernameResponse.Message}";
-             }
-             else
-             {
-                 ViewBag.LotNumber = uniqueUsernameResponse.UniqueUsername;  // ✅ FIXED: use UniqueUsername
-             }*/
-
-            // ✅ send only these three via ViewBag
-            ViewBag.Company = company;
-            ViewBag.UserId = userId;
-
-            return View(); // no model passed
-        }
-        public async Task<IActionResult> Index()
-        {
-            var userId = HttpContext.Session.GetInt32("userId");
-            var selectedCompanyId = HttpContext.Session.GetInt32("selectedCompanyId");
-
-            if (selectedCompanyId == null)
-            {
-                // Redirect or show message
-                return RedirectToAction("Index", "Dashboard");
-            }
-
-            ViewBag.CompanyId = selectedCompanyId;
-            int company = selectedCompanyId.Value;
 
             ViewBag.UserId = userId.Value;
-            ViewBag.CompanyId = selectedCompanyId;
+            ViewBag.userId = userId.Value;
+            ViewBag.CompanyId = selectedCompanyId.Value;
+            ViewBag.Company = selectedCompanyId.Value;
+
+            var uniqueUsernameResponse = await _inventoryAuditService.GenerateUniqueUsernameAsync(userId.Value);
+            ViewBag.LotNumber = uniqueUsernameResponse.Success && !string.IsNullOrWhiteSpace(uniqueUsernameResponse.UniqueUsername)
+                ? uniqueUsernameResponse.UniqueUsername
+                : $"QC-{userId.Value}-{DateTime.Now:yyyyMMddHHmmss}";
+
+            return true;
+        }
+
+        public async Task<IActionResult> QualityCheck()
+        {
+            if (!await PrepareQualityCheckViewAsync())
+                return RedirectToAction("Index", "Login");
+
             return View();
+        }
+
+        public async Task<IActionResult> AddQC()
+        {
+            if (!await PrepareQualityCheckViewAsync())
+                return RedirectToAction("Index", "Login");
+
+            return View();
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            return RedirectToAction(nameof(QualityCheck));
         }
     }
 }

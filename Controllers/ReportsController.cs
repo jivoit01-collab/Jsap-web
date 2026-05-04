@@ -103,12 +103,12 @@ namespace JSAPNEW.Controllers
         }
 
         [HttpGet("GetApprovalStatusReport")]
-        public async Task<ActionResult> GetApprovalStatusReport(int userId, int company, string month)
+        public async Task<ActionResult> GetApprovalStatusReport([FromQuery(Name = "userId")] int reportUserId, int company, string month)
         {
             try
             {
-                var result = await _reportsService.GetApprovalStatusReportAsync(userId, company, month);
-                if (result == null || (!result.Advance.Any() && !result.BOMs.Any()))
+                var result = await _reportsService.GetApprovalStatusReportAsync(reportUserId, company, month);
+                if (result == null || (!result.Advance.Any() && !result.BOMs.Any() && !result.Items.Any()))
                 {
                     _reportslogger.LogInformation("No data found");
                     return NotFound(new { Success = false, Message = "No data found" });

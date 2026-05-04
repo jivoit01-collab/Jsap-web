@@ -2325,28 +2325,25 @@
         });
 
         async function initializeAuthenticatedPage(userId, companyId) {
-            try {
-                if (!window.APP || !window.APP.initializeAuth) {
-                    throw new Error('Authentication initializer is not available');
-                }
-
-                await window.APP.initializeAuth();
-                await hydrateUserProfile();
-
-                if (!userId || userId <= 0) {
-                    await restoreServerSession();
-                    return;
-                }
-
+            if (userId && userId > 0) {
+                sessionStorage.removeItem('jsap_session_restore_attempted');
                 loadDynamicMenu(userId, companyId);
-            } catch (error) {
-                console.warn('Authentication initialization failed:', error);
-                stopMenuLoading('Session expired. Redirecting to login...');
-                if (window.APP && window.APP.redirectToLogin) {
-                    window.APP.redirectToLogin();
-                } else {
-                    window.location.href = '/Login';
+                hydrateUserProfile().catch(function (error) {
+                    console.warn('User profile hydration skipped:', error);
+                });
+
+                if (window.APP && window.APP.initializeAuth) {
+                    window.APP.initializeAuth({ redirectOnFailure: false }).catch(function () { });
                 }
+                return;
+            }
+
+            try {
+                await restoreServerSession();
+            } catch (error) {
+                console.warn('Session restore failed:', error);
+                stopMenuLoading('Session expired. Redirecting to login...');
+                window.location.replace('/Login');
             }
         }
 
@@ -2383,6 +2380,16 @@
         }
 
         async function restoreServerSession() {
+            const restoreKey = 'jsap_session_restore_attempted';
+            if (sessionStorage.getItem(restoreKey) === '1') {
+                throw new Error('Session restore already attempted');
+            }
+            sessionStorage.setItem(restoreKey, '1');
+
+            if (window.APP && window.APP.initializeAuth) {
+                await window.APP.initializeAuth({ redirectOnFailure: false }).catch(function () { });
+            }
+
             const response = await fetch('/api/auth/getcompanies', {
                 method: 'GET',
                 credentials: 'include'
@@ -2410,7 +2417,8 @@
                 throw new Error('Unable to rebuild server session');
             }
 
-            window.location.reload();
+            sessionStorage.removeItem(restoreKey);
+            window.location.replace(window.location.href);
         }
 
         function stopMenuLoading(message) {
