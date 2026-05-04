@@ -454,23 +454,58 @@ namespace JSAPNEW.Services.Implementation
                     var sapStatuses  = new List<string>();
                     var martStatuses = new List<string>();
 
-                    // ── Step 1: Check if this is the last approval stage (pending items exist) ──
-                    List<PendingItemApiInsertionsModel> pendingItems = null;
-                    for (int i = 0; i < 3; i++)
+                    // ── Step 1: Determine final approval stage from DB workflow state ──
+                    // Do NOT use pending SAP rows to decide final stage. SAP rows are integration data,
+                    // while jsGetItemCurrentStage is the approval workflow source of truth.
+                    var stageData = await conn.QueryFirstOrDefaultAsync<dynamic>(
+                        "imc.jsGetItemCurrentStage",
+                        new { flowId = request.itemId },
+                        commandType: CommandType.StoredProcedure
+                    );
+
+                    if (stageData == null)
                     {
-                        pendingItems = await GetPendingItemApiInsertionsAsync(request.itemId);
-                        if (pendingItems != null && pendingItems.Count > 0)
-                            break;
-                        await Task.Delay(1000);
+                        Console.WriteLine($"[WARN] IMC approval blocked: no stage data found. FlowId={request.itemId}, Company={request.company}, UserId={request.userId}");
+
+                        return new ItemMasterModel
+                        {
+                            Success = false,
+                            Message = "Unable to determine current approval stage. DB approval was not completed.",
+                            ApprovalStatus = "Blocked",
+                            SapStatus = "Skipped",
+                            MartStatus = "Skipped"
+                        };
                     }
 
-                    bool isLastStage = pendingItems != null && pendingItems.Count > 0;
+                    int currentStage = Convert.ToInt32(stageData.currentStage);
+                    int totalStage = Convert.ToInt32(stageData.totalStage);
+                    int currentStageId = Convert.ToInt32(stageData.currentStageId);
+                    string stageStatus = Convert.ToString(stageData.status) ?? "Unknown";
+                    bool isLastStage = currentStage > 0 && totalStage > 0 && currentStage == totalStage;
+
+                    Console.WriteLine($"[INFO] IMC stage check. FlowId={request.itemId}, CurrentStage={currentStage}, TotalStage={totalStage}, CurrentStageId={currentStageId}, Status={stageStatus}, IsLastStage={isLastStage}");
 
                     // ── Step 2: If last stage, POST to SAP FIRST before approving ──
                     if (isLastStage)
                     {
-                        Console.WriteLine($"[INFO] Last approval stage for FlowId: {request.itemId}. Posting to SAP before approving...");
-                        Console.WriteLine($"[INFO] {pendingItems.Count} pending item(s) fetched for FlowId: {request.itemId}");
+                        var pendingItems = await GetPendingItemApiInsertionsAsync(request.itemId);
+                        int pendingItemsCount = pendingItems?.Count ?? 0;
+
+                        Console.WriteLine($"[INFO] IMC final approval stage detected. FlowId={request.itemId}, PendingItemsCount={pendingItemsCount}. SAP post will run before DB approval.");
+
+                        if (pendingItemsCount == 0)
+                        {
+                            Console.WriteLine($"[WARN] IMC final approval blocked: no pending SAP item rows found. FlowId={request.itemId}, Company={request.company}, UserId={request.userId}");
+
+                            return new ItemMasterModel
+                            {
+                                Success = false,
+                                Message = "Final approval stage detected, but no pending SAP item data was found. DB approval was not completed.",
+                                ApprovalStatus = "Blocked",
+                                SapStatus = "Skipped - no pending SAP rows",
+                                MartStatus = "Skipped"
+                            };
+                        }
 
                         var apiResults = await PostItemsToSAPAsync(pendingItems);
 
@@ -491,11 +526,13 @@ namespace JSAPNEW.Services.Implementation
                             }
                         }
 
+                        Console.WriteLine($"[INFO] IMC SAP response. FlowId={request.itemId}, AllSapSuccess={allSapSuccess}, SapStatus={(sapStatuses.Count > 0 ? string.Join("; ", sapStatuses) : "No SAP response")}, MartStatus={(martStatuses.Count > 0 ? string.Join("; ", martStatuses) : "No MART response")}");
+
                         // ── If SAP creation failed, DO NOT approve — return exact error to frontend ──
                         if (!allSapSuccess)
                         {
                             string errorDetail = string.Join("; ", sapErrors);
-                            Console.WriteLine($"[ERROR] SAP creation failed for FlowId: {request.itemId}. Approval blocked. Errors: {errorDetail}");
+                            Console.WriteLine($"[WARN] IMC final approval blocked because SAP failed. FlowId={request.itemId}, Error={errorDetail}");
 
                             return new ItemMasterModel
                             {
@@ -508,6 +545,10 @@ namespace JSAPNEW.Services.Implementation
                         }
 
                         resultMessages.Add("SAP item created successfully");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[INFO] IMC intermediate approval. FlowId={request.itemId}. SAP call skipped.");
                     }
 
                     // ── Step 3: SAP succeeded (or intermediate stage) — now approve in DB ──
