@@ -253,10 +253,12 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var appUrl = builder.Configuration["App:Url"] ?? "http://localhost:5000";
-var configuredCorsOrigins = (Environment.GetEnvironmentVariable("JSAP_CORS_ORIGINS") ?? builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
+var configuredCorsOrigins = (Environment.GetEnvironmentVariable("JSAP_CORS_ORIGINS") ?? string.Empty)
     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
     .Where(origin => !origin.Contains('*'))
     .ToList();
+configuredCorsOrigins.AddRange(
+    builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>());
 
 if (!string.IsNullOrWhiteSpace(appUrl) && !appUrl.Contains('*'))
 {

@@ -21,12 +21,14 @@ namespace JSAPNEW.Controllers
         private const string RefreshTokenCookiePath = "/api/Auth";
         private readonly IUserService _userService;
         private readonly IAuthSecurityService _authSecurityService;
+        private readonly ITokenService _tokenService;
         private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IUserService userService, IAuthSecurityService authSecurityService, ILogger<AuthController> logger)
+        public AuthController(IUserService userService, IAuthSecurityService authSecurityService, ITokenService tokenService, ILogger<AuthController> logger)
         {
             _userService = userService;
             _authSecurityService = authSecurityService;
+            _tokenService = tokenService;
             _logger = logger;
         }
 
@@ -69,6 +71,8 @@ namespace JSAPNEW.Controllers
                 GetUserAgent(),
                 role);
             SetRefreshTokenCookie(refreshToken);
+            user.Role = role;
+            var accessToken = _tokenService.GenerateToken(user);
 
             _logger.LogInformation("Successful login for user: {User}", request.loginUser);
 
@@ -76,6 +80,8 @@ namespace JSAPNEW.Controllers
             {
                 success = true,
                 message = "Login successful",
+                accessToken,
+                expiresUtc = DateTime.UtcNow.AddMinutes(15),
                 user = new
                 {
                     userId = user.userId,
@@ -114,16 +120,21 @@ namespace JSAPNEW.Controllers
                 validation.Role);
 
             SetRefreshTokenCookie(newRefreshToken);
-            await SignInCookieAsync(new UserDto
+            var user = new UserDto
             {
                 userId = validation.UserId,
+                userName = validation.UserId.ToString(),
                 loginUser = validation.UserId.ToString(),
                 Role = validation.Role
-            }, validation.Role);
+            };
+
+            await SignInCookieAsync(user, validation.Role);
+            var accessToken = _tokenService.GenerateToken(user);
 
             return Ok(new
             {
                 success = true,
+                accessToken,
                 expiresUtc = DateTime.UtcNow.AddMinutes(15)
             });
         }
