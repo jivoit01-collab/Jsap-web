@@ -459,8 +459,7 @@
                 }
 
                 const authHeaders = {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + loginData.accessToken
+                    'Content-Type': 'application/json'
                 };
 
                 const companyRes = await fetch(`/api/auth/getcompanies?userId=${userId}`, {

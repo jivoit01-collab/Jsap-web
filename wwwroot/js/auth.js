@@ -2,7 +2,6 @@
     if (window.__authInitialized) return;
     window.__authInitialized = true;
 
-    var accessToken = null;
     var refreshPromise = null;
     var authInitPromise = null;
     var authReady = false;
@@ -24,7 +23,7 @@
         return headers;
     }
 
-    async function refreshAccessToken() {
+    async function refreshAuthCookie() {
         if (refreshPromise) return refreshPromise;
 
         refreshPromise = window.__nativeFetch("/api/Auth/refresh", {
@@ -35,19 +34,16 @@
         })
             .then(async function (response) {
                 if (!response.ok) {
-                    accessToken = null;
                     throw new Error("Unable to refresh authentication");
                 }
 
                 var data = await response.json();
-                if (!data || !data.accessToken) {
-                    accessToken = null;
+                if (!data || !data.success) {
                     throw new Error("Invalid refresh response");
                 }
 
-                accessToken = data.accessToken;
                 authReady = true;
-                return accessToken;
+                return true;
             })
             .finally(function () {
                 refreshPromise = null;
@@ -64,13 +60,12 @@
 
     function initializeAuth(options) {
         options = options || {};
-        if (authReady && accessToken) return Promise.resolve(accessToken);
+        if (authReady) return Promise.resolve(true);
         if (authInitPromise) return authInitPromise;
 
-        authInitPromise = refreshAccessToken()
+        authInitPromise = refreshAuthCookie()
             .catch(function (error) {
                 authReady = false;
-                accessToken = null;
                 if (options.redirectOnFailure !== false) {
                     redirectToLogin();
                 }
@@ -87,27 +82,13 @@
         var options = Object.assign({}, init || {});
         options.credentials = options.credentials || "include";
 
-        if (!accessToken && !isAuthUrl(input)) {
-            try {
-                await initializeAuth({ redirectOnFailure: false });
-            } catch (error) {
-                // Let the original request return its server-side auth result.
-            }
-        }
-
-        if (accessToken && !isAuthUrl(input)) {
-            options.headers = mergeHeaders(options.headers, {
-                Authorization: "Bearer " + accessToken
-            });
-        }
-
         var response = await window.__nativeFetch(input, options);
         if (response.status !== 401 || retrying || isAuthUrl(input)) {
             return response;
         }
 
         try {
-            await refreshAccessToken();
+            await refreshAuthCookie();
             return authFetch(input, init, true);
         } catch (error) {
             console.warn("Authentication refresh failed.");
@@ -123,27 +104,22 @@
     window.APP = window.APP || {};
 
     window.APP.setAccessToken = function (token) {
-        accessToken = token || null;
+        authReady = !!token || authReady;
     };
 
     window.APP.clearAccessToken = function () {
-        accessToken = null;
         authReady = false;
     };
 
-    window.APP.ensureAccessToken = refreshAccessToken;
+    window.APP.ensureAccessToken = refreshAuthCookie;
     window.APP.initializeAuth = initializeAuth;
     window.APP.isAuthReady = function () {
-        return authReady && !!accessToken;
+        return authReady;
     };
     window.APP.redirectToLogin = redirectToLogin;
 
     window.APP.getAuthHeaders = function () {
-        var headers = { "Content-Type": "application/json" };
-        if (accessToken) {
-            headers.Authorization = "Bearer " + accessToken;
-        }
-        return headers;
+        return { "Content-Type": "application/json" };
     };
 
     window.APP.getAuthFetch = function (url, options) {
@@ -158,12 +134,7 @@
         var $ = jQuery;
 
         $.ajaxSetup({
-            xhrFields: { withCredentials: true },
-            beforeSend: function (xhr, settings) {
-                if (accessToken && !isAuthUrl(settings.url)) {
-                    xhr.setRequestHeader("Authorization", "Bearer " + accessToken);
-                }
-            }
+            xhrFields: { withCredentials: true }
         });
 
         if (!$.ajax.__authWrapped) {

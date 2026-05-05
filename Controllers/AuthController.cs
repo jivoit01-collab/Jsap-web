@@ -20,14 +20,12 @@ namespace JSAPNEW.Controllers
         private static readonly string[] LegacyRefreshTokenCookieNames = { "refreshToken", "refresh_token" };
         private const string RefreshTokenCookiePath = "/api/Auth";
         private readonly IUserService _userService;
-        private readonly ITokenService _tokenService;
         private readonly IAuthSecurityService _authSecurityService;
         private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IUserService userService, ITokenService tokenService, IAuthSecurityService authSecurityService, ILogger<AuthController> logger)
+        public AuthController(IUserService userService, IAuthSecurityService authSecurityService, ILogger<AuthController> logger)
         {
             _userService = userService;
-            _tokenService = tokenService;
             _authSecurityService = authSecurityService;
             _logger = logger;
         }
@@ -50,33 +48,8 @@ namespace JSAPNEW.Controllers
 
             var user = result.User;
 
-            // Create claims for cookie authentication
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.userId.ToString()),
-                new Claim("userId", user.userId.ToString()),
-                new Claim(ClaimTypes.Name, user.loginUser ?? ""),
-                new Claim(ClaimTypes.Email, user.userEmail ?? ""),
-                new Claim("userEmail", user.userEmail ?? ""),
-                new Claim("FirstName", user.firstName ?? ""),
-                new Claim("LastName", user.lastName ?? "")
-            };
-
             var role = string.IsNullOrWhiteSpace(user.Role) ? "User" : user.Role.Trim();
-            claims.Add(new Claim(ClaimTypes.Role, role));
-            claims.Add(new Claim("role", role));
-
-            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-            var authProperties = new AuthenticationProperties
-            {
-                IsPersistent = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
-            };
-
-            await HttpContext.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                new ClaimsPrincipal(claimsIdentity),
-                authProperties);
+            await SignInCookieAsync(user, role);
 
             var companies = (await _userService.GetCompanyAsync(user.userId))?.ToList() ?? new List<CompanyModel>();
             HttpContext.Session.SetInt32("userId", user.userId);
@@ -103,7 +76,6 @@ namespace JSAPNEW.Controllers
             {
                 success = true,
                 message = "Login successful",
-                accessToken = _tokenService.GenerateToken(user),
                 user = new
                 {
                     userId = user.userId,
@@ -142,18 +114,16 @@ namespace JSAPNEW.Controllers
                 validation.Role);
 
             SetRefreshTokenCookie(newRefreshToken);
-
-            var accessToken = _tokenService.GenerateToken(new UserDto
+            await SignInCookieAsync(new UserDto
             {
                 userId = validation.UserId,
                 loginUser = validation.UserId.ToString(),
                 Role = validation.Role
-            });
+            }, validation.Role);
 
             return Ok(new
             {
                 success = true,
-                accessToken,
                 expiresUtc = DateTime.UtcNow.AddMinutes(15)
             });
         }
@@ -438,6 +408,34 @@ namespace JSAPNEW.Controllers
                 SameSite = SameSiteMode.Strict,
                 Path = path ?? RefreshTokenCookiePath
             };
+        }
+
+        private async Task SignInCookieAsync(UserDto user, string role)
+        {
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.userId.ToString()),
+                new Claim("userId", user.userId.ToString()),
+                new Claim(ClaimTypes.Name, user.loginUser ?? ""),
+                new Claim(ClaimTypes.Email, user.userEmail ?? ""),
+                new Claim("userEmail", user.userEmail ?? ""),
+                new Claim("FirstName", user.firstName ?? ""),
+                new Claim("LastName", user.lastName ?? ""),
+                new Claim(ClaimTypes.Role, role),
+                new Claim("role", role)
+            };
+
+            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var authProperties = new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
+            };
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(claimsIdentity),
+                authProperties);
         }
 
         private string GetClientIpAddress()
