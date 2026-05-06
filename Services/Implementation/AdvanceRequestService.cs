@@ -314,7 +314,7 @@ namespace JSAPNEW.Services.Implementation
                     filePath = cleanFilePath, // Use full path: "Uploads/Advancepayment"
                     fileName = fileNameWithoutExt,
                     fileExt = cleanExt
-                }, "https");
+                }, "http");
 
                 // Debug: Log what we're generating
                 // Console.WriteLine($"Generated URL for {attachment.fileName}: filePath='{cleanFilePath}', fileName='{attachment.fileName}', fileExt='{cleanExt}'");

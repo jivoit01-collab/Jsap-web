@@ -34,40 +34,44 @@ namespace JSAPNEW.Controllers
            using var conn = new SqlConnection(_connStr);
            conn.Open();
 
-            var cmd = new SqlCommand(@"
+            //            var cmd = new SqlCommand(@"
 
-DECLARE @StartDate DATE = '2026-04-01';
+            //DECLARE @StartDate DATE = '2026-04-01';
 
-SELECT 
-  COUNT(DISTINCT A.VchNumber) AS TotalBills,
+            //SELECT 
+            //  COUNT(DISTINCT A.VchNumber) AS TotalBills,
 
-    COUNT(DISTINCT CASE 
-       WHEN AU.Status IS NULL OR AU.Status = 'Pending' 
-        THEN A.VchNumber 
-    END) AS PendingMaker,
+            //    COUNT(DISTINCT CASE 
+            //       WHEN AU.Status IS NULL OR AU.Status = 'Pending' 
+            //        THEN A.VchNumber 
+            //    END) AS PendingMaker,
 
-    COUNT(DISTINCT CASE 
-       WHEN AU.CheckerStatus = 'Approved' 
-        THEN A.VchNumber 
-    END) AS ApprovedChecker,
+            //    COUNT(DISTINCT CASE 
+            //       WHEN AU.CheckerStatus = 'Approved' 
+            //        THEN A.VchNumber 
+            //    END) AS ApprovedChecker,
 
-   COUNT(DISTINCT CASE 
-        WHEN G.RefName IS NOT NULL 
-        THEN A.VchNumber 
-    END) AS TotalPaid
+            //   COUNT(DISTINCT CASE 
+            //        WHEN G.RefName IS NOT NULL 
+            //        THEN A.VchNumber 
+            //    END) AS TotalPaid
 
-FROM PurchaseHeader A
+            //FROM PurchaseHeader A
 
-LEFT JOIN AttachmentUpload AU 
-    ON AU.VchNumber = A.VchNumber
+            //LEFT JOIN AttachmentUpload AU 
+            //    ON AU.VchNumber = A.VchNumber
 
-LEFT JOIN RefMaster G 
-   ON G.RefName    = A.SupplierRef
-   AND G.AccountID = A.AccountID
-    AND G.ToBy      = 43
+            //LEFT JOIN RefMaster G 
+            //   ON G.RefName    = A.SupplierRef
+            //   AND G.AccountID = A.AccountID
+            //    AND G.ToBy      = 43
 
-WHERE A.VoucherDate >= @StartDate
-           ", conn);
+            //WHERE A.VoucherDate >= @StartDate
+            //           ", conn);
+            var cmd = new SqlCommand("GetSummaryData", conn);
+            cmd.CommandType = CommandType.StoredProcedure;
+
+            cmd.Parameters.AddWithValue("@StartDate", new DateTime(2026, 4, 1));
 
            var reader = cmd.ExecuteReader();
             if (reader.Read())
