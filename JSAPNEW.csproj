@@ -48,6 +48,10 @@
     <Folder Include="wwwroot\uploads\maker\" />
     <Folder Include="wwwroot\uploads\Ticket\" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Views\**\*.cshtml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
     
 
 </Project>
