@@ -8,18 +8,24 @@ using ServiceStack;
 using JSAPNEW.Data.Entities;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.Design;
+using System.Collections.Concurrent;
+using System.Text;
 
 namespace JSAPNEW.Services.Implementation
 {
     public class BPmasterService : IBPmasterService
     {
         private readonly IConfiguration _configuration;
+        private readonly IBPMasterSapService _bpMasterSapService;
         private readonly string _connectionString;
         private readonly Dictionary<int, HanaCompanySettings> _hanaSettings;
+        private static readonly ConcurrentDictionary<int, SemaphoreSlim> _approvalLocks = new();
+        private static readonly ConcurrentDictionary<int, SemaphoreSlim> _sapPostLocks = new();
 
-        public BPmasterService(IConfiguration configuration)
+        public BPmasterService(IConfiguration configuration, IBPMasterSapService bpMasterSapService)
         {
             _configuration = configuration;
+            _bpMasterSapService = bpMasterSapService;
             _connectionString = _configuration.GetConnectionString("DefaultConnection");
             var activeEnv = configuration["ActiveEnvironment"];  // "Test" or "Live"
             _hanaSettings = configuration.GetSection($"HanaSettings:{activeEnv}")
@@ -414,18 +420,388 @@ namespace JSAPNEW.Services.Implementation
 
         public async Task<ApproveOrRejectBpResponse> ApproveBPAsync(ApproveOrRejectBpRequest request)
         {
+            var approvalLock = _approvalLocks.GetOrAdd(request.FlowId, _ => new SemaphoreSlim(1, 1));
+            if (!await approvalLock.WaitAsync(TimeSpan.FromSeconds(5)))
+            {
+                return new ApproveOrRejectBpResponse
+                {
+                    Success = false,
+                    ResultMessage = $"BP flow {request.FlowId} is already being approved. Please retry shortly.",
+                    ApprovalStatus = "Blocked",
+                    SapStatus = "Skipped - concurrent approval detected"
+                };
+            }
+
+            try
+            {
+                var flow = await GetBpFlowRuntimeAsync(request.FlowId);
+                if (flow == null)
+                {
+                    return new ApproveOrRejectBpResponse
+                    {
+                        Success = false,
+                        ResultMessage = "BP workflow not found.",
+                        ApprovalStatus = "Blocked",
+                        SapStatus = "Skipped"
+                    };
+                }
+
+                if (flow.Company != request.Company)
+                {
+                    return new ApproveOrRejectBpResponse
+                    {
+                        Success = false,
+                        ResultMessage = "Access denied: BP belongs to a different company.",
+                        ApprovalStatus = "Blocked",
+                        SapStatus = "Skipped"
+                    };
+                }
+
+                if (!flow.IsFinalStage || !string.Equals(request.Action ?? "Approve", "Approve", StringComparison.OrdinalIgnoreCase))
+                {
+                    var nonFinalResult = await ExecuteApproveProcedureAsync(request);
+                    nonFinalResult.Success = true;
+                    nonFinalResult.ApprovalStatus = "Advanced";
+                    nonFinalResult.SapStatus = "Not final stage";
+                    return nonFinalResult;
+                }
+
+                var authorizedForFinalStage = await IsUserAssignedToCurrentStageAsync(request.UserId, flow.CurrentStageId);
+                if (!authorizedForFinalStage)
+                {
+                    return new ApproveOrRejectBpResponse
+                    {
+                        Success = false,
+                        BPCode = flow.BpCode,
+                        BPCompany = flow.Company,
+                        ResultMessage = "User is not assigned to the final BP approval stage.",
+                        ApprovalStatus = "Blocked",
+                        SapStatus = "Skipped"
+                    };
+                }
+
+                var sapLock = _sapPostLocks.GetOrAdd(flow.BpCode, _ => new SemaphoreSlim(1, 1));
+                if (!await sapLock.WaitAsync(TimeSpan.FromSeconds(30)))
+                {
+                    return new ApproveOrRejectBpResponse
+                    {
+                        Success = false,
+                        BPCode = flow.BpCode,
+                        BPCompany = flow.Company,
+                        ResultMessage = "Another request is already creating this BP in SAP. Please retry shortly.",
+                        ApprovalStatus = "Blocked",
+                        SapStatus = "Processing"
+                    };
+                }
+
+                try
+                {
+                    var previousTag = await UpdateBpApiStatusAsync(flow.BpCode, "Processing SAP BP creation", "P", null, null, null, request.UserId);
+                    if (string.Equals(previousTag.PreviousTag, "Y", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var alreadySynced = await ExecuteApproveProcedureAsync(request);
+                        alreadySynced.Success = true;
+                        alreadySynced.ApprovalStatus = "Approved";
+                        alreadySynced.SapStatus = "Already synced";
+                        return alreadySynced;
+                    }
+
+                    if (string.Equals(previousTag.PreviousTag, "P", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new ApproveOrRejectBpResponse
+                        {
+                            Success = false,
+                            BPCode = flow.BpCode,
+                            BPCompany = flow.Company,
+                            ResultMessage = "SAP BP creation is already processing. Please retry shortly.",
+                            ApprovalStatus = "Blocked",
+                            SapStatus = "Processing"
+                        };
+                    }
+
+                    var bpData = await GetSingleBPDataForSapAsync(flow.BpCode);
+                    var sapData = await GetSPADataAsync(flow.BpCode);
+                    var sapResult = await _bpMasterSapService.PostBusinessPartnerAsync(new BpSapPostRequest
+                    {
+                        FlowId = flow.FlowId,
+                        BpCode = flow.BpCode,
+                        Company = flow.Company,
+                        UserId = request.UserId,
+                        BpType = flow.BpType,
+                        BpData = bpData,
+                        SapData = sapData
+                    });
+
+                    if (!sapResult.Success)
+                    {
+                        await UpdateBpApiStatusAsync(flow.BpCode, sapResult.Message, "N", sapResult.CardCode, sapResult.AttachmentEntry, sapResult.PayloadHash, request.UserId);
+                        return new ApproveOrRejectBpResponse
+                        {
+                            Success = false,
+                            BPCode = flow.BpCode,
+                            BPCompany = flow.Company,
+                            ResultMessage = $"SAP BP creation failed: {sapResult.Message}",
+                            ApprovalStatus = "Blocked",
+                            SapStatus = "Failed",
+                            SapCardCode = sapResult.CardCode,
+                            AttachmentEntry = sapResult.AttachmentEntry,
+                            PayloadHash = sapResult.PayloadHash
+                        };
+                    }
+
+                    await UpdateBpApiStatusAsync(flow.BpCode, sapResult.Message, "Y", sapResult.CardCode, sapResult.AttachmentEntry, sapResult.PayloadHash, request.UserId);
+                    var approved = await ExecuteApproveProcedureAsync(request);
+                    approved.Success = true;
+                    approved.BPCode = approved.BPCode == 0 ? flow.BpCode : approved.BPCode;
+                    approved.BPCompany = approved.BPCompany == 0 ? flow.Company : approved.BPCompany;
+                    approved.ApprovalStatus = "Approved";
+                    approved.SapStatus = "Success";
+                    approved.SapCardCode = sapResult.CardCode;
+                    approved.AttachmentEntry = sapResult.AttachmentEntry;
+                    approved.PayloadHash = sapResult.PayloadHash;
+                    approved.ResultMessage = string.IsNullOrWhiteSpace(approved.ResultMessage)
+                        ? sapResult.Message
+                        : $"{approved.ResultMessage} {sapResult.Message}";
+                    return approved;
+                }
+                finally
+                {
+                    sapLock.Release();
+                }
+            }
+            finally
+            {
+                approvalLock.Release();
+            }
+        }
+
+        public async Task<ApproveOrRejectBpResponse> RetrySapPostAsync(ApproveOrRejectBpRequest request)
+        {
+            var flow = await GetBpFlowRuntimeAsync(request.FlowId);
+            if (flow == null)
+            {
+                return new ApproveOrRejectBpResponse
+                {
+                    Success = false,
+                    ResultMessage = "BP workflow not found.",
+                    ApprovalStatus = "Blocked",
+                    SapStatus = "Skipped"
+                };
+            }
+
+            if (flow.Company != request.Company)
+            {
+                return new ApproveOrRejectBpResponse
+                {
+                    Success = false,
+                    BPCode = flow.BpCode,
+                    BPCompany = flow.Company,
+                    ResultMessage = "Access denied: BP belongs to a different company.",
+                    ApprovalStatus = "Blocked",
+                    SapStatus = "Skipped"
+                };
+            }
+
+            if (!string.Equals(flow.FlowStatus, "P", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ApproveOrRejectBpResponse
+                {
+                    Success = false,
+                    BPCode = flow.BpCode,
+                    BPCompany = flow.Company,
+                    ResultMessage = "SAP retry is only allowed for pending BP workflows.",
+                    ApprovalStatus = "Blocked",
+                    SapStatus = "Skipped"
+                };
+            }
+
+            if (!flow.IsFinalStage)
+            {
+                return new ApproveOrRejectBpResponse
+                {
+                    Success = false,
+                    BPCode = flow.BpCode,
+                    BPCompany = flow.Company,
+                    ResultMessage = "SAP retry is only allowed at the final BP approval stage.",
+                    ApprovalStatus = "Blocked",
+                    SapStatus = "Skipped - not final stage"
+                };
+            }
+
+            var apiStatusTag = await GetBpApiStatusTagAsync(flow.BpCode);
+            if (string.Equals(apiStatusTag, "P", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ApproveOrRejectBpResponse
+                {
+                    Success = false,
+                    BPCode = flow.BpCode,
+                    BPCompany = flow.Company,
+                    ResultMessage = "SAP BP creation is already processing. Please retry shortly.",
+                    ApprovalStatus = "Blocked",
+                    SapStatus = "Processing"
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(apiStatusTag))
+            {
+                return new ApproveOrRejectBpResponse
+                {
+                    Success = false,
+                    BPCode = flow.BpCode,
+                    BPCompany = flow.Company,
+                    ResultMessage = "No failed SAP BP posting exists for retry. Use normal final approval.",
+                    ApprovalStatus = "Blocked",
+                    SapStatus = "Not started"
+                };
+            }
+
+            if (!string.Equals(apiStatusTag, "N", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(apiStatusTag, "Y", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ApproveOrRejectBpResponse
+                {
+                    Success = false,
+                    BPCode = flow.BpCode,
+                    BPCompany = flow.Company,
+                    ResultMessage = $"SAP retry is not allowed for current SAP status tag '{apiStatusTag}'.",
+                    ApprovalStatus = "Blocked",
+                    SapStatus = apiStatusTag
+                };
+            }
+
+            request.Action = "Approve";
+            return await ApproveBPAsync(request);
+        }
+
+        private async Task<ApproveOrRejectBpResponse> ExecuteApproveProcedureAsync(ApproveOrRejectBpRequest request)
+        {
             using var connection = new SqlConnection(_connectionString);
             var parameters = new DynamicParameters();
             parameters.Add("@flowid", request.FlowId);
             parameters.Add("@company", request.Company);
             parameters.Add("@userId", request.UserId);
+            parameters.Add("@remarks", request.Remarks ?? "");
+            parameters.Add("@action", string.IsNullOrWhiteSpace(request.Action) ? "Approve" : request.Action);
+
             var result = await connection.QuerySingleAsync<ApproveOrRejectBpResponse>(
                 "[BP].[jsApproveBP]",
                 parameters,
                 commandType: CommandType.StoredProcedure
             );
+
             return result;
         }
+
+        private async Task<BpFlowRuntimeModel?> GetBpFlowRuntimeAsync(int flowId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            const string sql = @"
+SELECT
+    f.id AS FlowId,
+    f.bpCode AS BpCode,
+    f.status AS FlowStatus,
+    f.currentStage AS CurrentStage,
+    f.totalStage AS TotalStage,
+    f.currentStageId AS CurrentStageId,
+    f.templateId AS TemplateId,
+    m.company AS Company,
+    m.type AS BpType
+FROM BP.jsFlow f
+INNER JOIN BP.jsMaster m ON m.code = f.bpCode
+WHERE f.id = @flowId;";
+
+            return await connection.QueryFirstOrDefaultAsync<BpFlowRuntimeModel>(sql, new { flowId });
+        }
+
+        private async Task<bool> IsUserAssignedToCurrentStageAsync(int userId, int stageId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            const string sql = "SELECT COUNT(1) FROM jsUserStage WHERE userId = @userId AND stageId = @stageId;";
+            var count = await connection.ExecuteScalarAsync<int>(sql, new { userId, stageId });
+            return count > 0;
+        }
+
+        private async Task<SingleBPDataModel> GetSingleBPDataForSapAsync(int bpCode)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            using var multi = await connection.QueryMultipleAsync(
+                "[BP].[jsGetSingleBPData]",
+                new { bpCode },
+                commandType: CommandType.StoredProcedure);
+
+            return new SingleBPDataModel
+            {
+                Master = await multi.ReadFirstOrDefaultAsync<BP_Master>(),
+                TaxDetails = await multi.ReadFirstOrDefaultAsync<BP_Tax>(),
+                Addresses = (await multi.ReadAsync<BP_Address>()).ToList(),
+                BankDetails = (await multi.ReadAsync<BP_Bank>()).ToList(),
+                ContactPersons = (await multi.ReadAsync<BP_Contact>()).ToList(),
+                Attachments = (await multi.ReadAsync<BP_Attachment>()).ToList()
+            };
+        }
+
+        private async Task<string?> GetBpApiStatusTagAsync(int bpCode)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            const string sql = @"
+SELECT TOP 1 apiStatusTag
+FROM BP.jsSAPData
+WHERE masterId = @bpCode
+ORDER BY id DESC;";
+
+            return await connection.QueryFirstOrDefaultAsync<string?>(sql, new { bpCode });
+        }
+
+        private async Task<BpApiStatusUpdateResult> UpdateBpApiStatusAsync(
+            int bpCode,
+            string apiMessage,
+            string tag,
+            string? sapCardCode,
+            int? attachmentEntry,
+            string? payloadHash,
+            int userId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            try
+            {
+                var parameters = new DynamicParameters();
+                parameters.Add("@bpCode", bpCode);
+                parameters.Add("@apiMessage", TruncateForDb(apiMessage, 1000));
+                parameters.Add("@tag", tag);
+                parameters.Add("@sapCardCode", sapCardCode);
+                parameters.Add("@attachmentEntry", attachmentEntry);
+                parameters.Add("@payloadHash", payloadHash);
+                parameters.Add("@userId", userId);
+
+                var previousTag = await connection.QueryFirstOrDefaultAsync<string>(
+                    "[BP].[jsUpdateBpApiStatus]",
+                    parameters,
+                    commandType: CommandType.StoredProcedure);
+
+                return new BpApiStatusUpdateResult
+                {
+                    PreviousTag = previousTag,
+                    Message = "BP SAP API status updated."
+                };
+            }
+            catch (SqlException ex) when (ex.Number == 2812 || ex.Message.Contains("jsUpdateBpApiStatus", StringComparison.OrdinalIgnoreCase))
+            {
+                return new BpApiStatusUpdateResult
+                {
+                    ProcedureAvailable = false,
+                    PreviousTag = null,
+                    Message = "BP.jsUpdateBpApiStatus is not deployed. Application locks are active, but cross-process SAP idempotency requires the SQL procedure."
+                };
+            }
+        }
+
+        private static string TruncateForDb(string? value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+            return value.Length <= maxLength ? value : value[..maxLength];
+        }
+
         public async Task<ApproveOrRejectBpResponse> RejectBPAsync(ApproveOrRejectBpRequest request)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -433,6 +809,8 @@ namespace JSAPNEW.Services.Implementation
             parameters.Add("@flowid", request.FlowId);
             parameters.Add("@company", request.Company);
             parameters.Add("@userId", request.UserId);
+            parameters.Add("@remarks", request.Remarks ?? "");
+            parameters.Add("@action", string.IsNullOrWhiteSpace(request.Action) ? "Reject" : request.Action);
 
             var result = await connection.QuerySingleAsync<ApproveOrRejectBpResponse>(
                 "[BP].[jsRejectBP]",
@@ -440,6 +818,9 @@ namespace JSAPNEW.Services.Implementation
                 commandType: CommandType.StoredProcedure
             );
 
+            result.Success = true;
+            result.ApprovalStatus = "Rejected";
+            result.SapStatus = "Not applicable";
             return result;
         }
         public async Task<IEnumerable<BPGetCard>> BPGetCardInfoAsync(int company, string BPType, string IsStaff)

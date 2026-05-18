@@ -1,0 +1,49 @@
+using Newtonsoft.Json.Linq;
+
+namespace JSAPNEW.Models
+{
+    public class BpSapPostRequest
+    {
+        public int FlowId { get; set; }
+        public int BpCode { get; set; }
+        public int Company { get; set; }
+        public int UserId { get; set; }
+        public string BpType { get; set; } = string.Empty;
+        public string CardCodePrefix { get; set; } = string.Empty;
+        public SingleBPDataModel BpData { get; set; } = new();
+        public SPAData? SapData { get; set; }
+    }
+
+    public class BpSapPostResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string CardCode { get; set; } = string.Empty;
+        public int? AttachmentEntry { get; set; }
+        public string PayloadHash { get; set; } = string.Empty;
+        public string CardType { get; set; } = string.Empty;
+        public JObject? Payload { get; set; }
+        public string RawResponse { get; set; } = string.Empty;
+    }
+
+    public class BpApiStatusUpdateResult
+    {
+        public bool ProcedureAvailable { get; set; } = true;
+        public string? PreviousTag { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class BpFlowRuntimeModel
+    {
+        public int FlowId { get; set; }
+        public int BpCode { get; set; }
+        public string FlowStatus { get; set; } = string.Empty;
+        public int CurrentStage { get; set; }
+        public int TotalStage { get; set; }
+        public int CurrentStageId { get; set; }
+        public int TemplateId { get; set; }
+        public int Company { get; set; }
+        public string BpType { get; set; } = string.Empty;
+        public bool IsFinalStage => TotalStage > 0 && CurrentStage >= TotalStage;
+    }
+}

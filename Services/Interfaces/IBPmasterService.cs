@@ -7,6 +7,7 @@ namespace JSAPNEW.Services.Interfaces
     {
         Task<BPMasterResponse> InsertBPMasterAsync(InsertBPMasterDataModel model);
         Task<ApproveOrRejectBpResponse> ApproveBPAsync(ApproveOrRejectBpRequest request);
+        Task<ApproveOrRejectBpResponse> RetrySapPostAsync(ApproveOrRejectBpRequest request);
         Task<ApproveOrRejectBpResponse> RejectBPAsync(ApproveOrRejectBpRequest request);
         Task<IEnumerable<ApprovedBpModel>> GetApprovedBPsAsync(int userId, int companyId, string month = null);
         Task<BPCountModel> GetBPCountsAsync(string month, int userId);

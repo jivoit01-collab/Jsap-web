@@ -323,6 +323,9 @@ namespace JSAPNEW.Controllers
             try
             {
                 var result = await _BPService.ApproveBPAsync(request);
+                if (!result.Success)
+                    return BadRequest(new { Success = false, Message = result.ResultMessage, Data = result });
+
                 return Ok(new { Success = true, Data = result });
             }
             catch (SqlException ex)
@@ -342,6 +345,9 @@ namespace JSAPNEW.Controllers
             try
             {
                 var result = await _BPService.RejectBPAsync(request);
+                if (!result.Success)
+                    return BadRequest(new { Success = false, Message = result.ResultMessage, Data = result });
+
                 return Ok(new { Success = true, Data = result });
             }
             catch (SqlException ex)
@@ -351,6 +357,29 @@ namespace JSAPNEW.Controllers
             catch (Exception ex)
             {
                 _BPlogger.LogError(ex, "Error during BP rejection.");
+                return StatusCode(500, new { Success = false, Message = "Internal server error" });
+            }
+        }
+
+        [HttpPost("RetrySapPost")]
+        public async Task<IActionResult> RetrySapPost([FromBody] ApproveOrRejectBpRequest request)
+        {
+            try
+            {
+                request.Action = "Approve";
+                var result = await _BPService.RetrySapPostAsync(request);
+                if (!result.Success)
+                    return BadRequest(new { Success = false, Message = result.ResultMessage, Data = result });
+
+                return Ok(new { Success = true, Data = result });
+            }
+            catch (SqlException ex)
+            {
+                return BadRequest(new { Success = false, Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _BPlogger.LogError(ex, "Error during BP SAP retry.");
                 return StatusCode(500, new { Success = false, Message = "Internal server error" });
             }
         }

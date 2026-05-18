@@ -34,6 +34,21 @@ namespace JSAPNEW.Models
         public string PriceList { get; set; }
         public DateTime CreatedOn { get; set; }
         public string status { get; set; }
+        public int CurrentStage { get; set; }
+        public int TotalStage { get; set; }
+        public int CurrentStageId { get; set; }
+        public string CurrentStageName { get; set; }
+        public bool IsFinalStage { get; set; }
+        public string ApiStatusTag { get; set; }
+        public string SapStatus { get; set; }
+        public string ApiMessage { get; set; }
+        public string SapCardCode { get; set; }
+        public int? SapAttachmentEntry { get; set; }
+        public string PayloadHash { get; set; }
+        public DateTime? LastAttemptOn { get; set; }
+        public int? LastAttemptBy { get; set; }
+        public int RetryCount { get; set; }
+        public bool CanRetrySap { get; set; }
     }
 
 
@@ -235,6 +250,22 @@ namespace JSAPNEW.Models
         public string? PaymentTermID { get; set; }
         public decimal? CreditLimit { get; set; }
         public string? PriceList { get; set; }
+        public DateTime? CreatedOn { get; set; }
+        public int CurrentStage { get; set; }
+        public int TotalStage { get; set; }
+        public int CurrentStageId { get; set; }
+        public string CurrentStageName { get; set; }
+        public bool IsFinalStage { get; set; }
+        public string ApiStatusTag { get; set; }
+        public string SapStatus { get; set; }
+        public string ApiMessage { get; set; }
+        public string SapCardCode { get; set; }
+        public int? SapAttachmentEntry { get; set; }
+        public string PayloadHash { get; set; }
+        public DateTime? LastAttemptOn { get; set; }
+        public int? LastAttemptBy { get; set; }
+        public int RetryCount { get; set; }
+        public bool CanRetrySap { get; set; }
     }
 
     public class RejectedBPModel
@@ -304,6 +335,7 @@ namespace JSAPNEW.Models
 
     public class BP_Bank
     {
+        public string BankCode { get; set; }
         public string BankName { get; set; }
         public string AccountNo { get; set; }
         public string IfscCode { get; set; }
@@ -350,12 +382,20 @@ namespace JSAPNEW.Models
         public int FlowId { get; set; }
         public int Company { get; set; }
         public int UserId { get; set; }
+        public string Remarks { get; set; } = "";
+        public string Action { get; set; } = "Approve";
     }
     public class ApproveOrRejectBpResponse
     {
+        public bool Success { get; set; } = true;
         public string ResultMessage { get; set; }
         public int BPCode { get; set; }
         public int BPCompany { get; set; }
+        public string ApprovalStatus { get; set; }
+        public string SapStatus { get; set; }
+        public string SapCardCode { get; set; }
+        public int? AttachmentEntry { get; set; }
+        public string PayloadHash { get; set; }
     }
     public class BPGetCard
     {
